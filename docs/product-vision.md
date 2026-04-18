@@ -14,10 +14,10 @@ Primary user: you. A technical founder/developer who wants to stay sharp on ecos
 
 ## Sources
 
-- GitHub Trending (daily/weekly)
-- Product Hunt (new launches)
-- Hacker News (front-page discussion)
-- Supplementary: curated awesome lists, high-star low-fork repos
+- GitHub Trending (daily/weekly) — **implemented**
+- Product Hunt (new launches) — *planned*
+- Hacker News (front-page discussion) — *planned*
+- Supplementary: curated awesome lists, high-star low-fork repos — *planned*
 
 ## Signal Gate
 
@@ -34,14 +34,15 @@ Each report follows a standard template:
 
 1. **TL;DR** — Two sentences: what this is and why it matters.
 2. **What & Why** — The project's own narrative. What problem does it claim to solve?
-3. **Technology Wave** — Which macro trend does this ride? What's the underlying force?
-4. **Supply & Demand** — Why couldn't this exist two years ago? What changed?
-5. **Product Analysis** — For what, for whom, business model.
-6. **Creativity & Differentiation** — What's genuinely new vs. incremental? What existing solutions did the author reject and why?
-7. **Competitive Landscape** — Who else solves this? Why might someone choose this instead?
-8. **Community Signals** — Contributor mix, discussion quality, velocity indicators.
-9. **Signal Assessment** — Real trend or temporary hype? Confidence level.
-10. **Open Questions** — What's unclear. What to investigate next.
+3. **Why Now** — Why couldn't this exist two years ago? What shifted in the ecosystem?
+4. **Technology Wave** — Which macro trend does this ride? What's the underlying force?
+5. **Supply & Demand** — Who's building it, who's using it, and what's the demand signal?
+6. **Product Analysis** — For what, for whom, business model.
+7. **Creativity & Differentiation** — What's genuinely new vs. incremental? What existing solutions did the author reject and why?
+8. **Competitive Landscape** — Who else solves this? Why might someone choose this instead?
+9. **Community Signals** — Contributor mix, discussion quality, velocity indicators.
+10. **Signal Assessment** — Real trend or temporary hype? Confidence level.
+11. **Open Questions** — What's unclear. What to investigate next.
 
 ## Content Pipeline
 
@@ -49,24 +50,27 @@ Each report follows a standard template:
 Source API
   → Fetch (Python script, scheduled)
     → Signal Gate (cheap filter: star velocity, age, contributors)
-      → Raw data collection (repo metadata, README, discussions)
+      → Raw data collection (repo metadata, README, web research via Tavily)
         → Draft report (low-cost LLM)
-          → Audit & enrich (flagship LLM)
-            → Save to knowledge base
+          → Audit (flagship LLM with Tavily tools for fact-checking)
+            → Rewrite (flagship LLM for clean prose)
+              → Save to knowledge base
 ```
 
 ### Pipeline Details
 
 - **Fetch & Gate**: Python script. Crude arithmetic filter, no LLM cost. Discards noise early.
-- **Draft**: Low-cost LLM (GPT-4o-mini, Claude Haiku, etc.) generates a structured report from collected data.
-- **Audit**: Flagship LLM (Claude Sonnet/Opus, GPT-4o) reviews draft, corrects errors, adds depth, flags weak analysis.
+- **Raw Data Collection**: Pulls repo metadata, README, and uses Tavily search/extract for supplementary web research.
+- **Draft**: Low-cost LLM (configurable, default MiniMax-M2.7-highspeed) generates a structured report from collected data.
+- **Audit**: Flagship LLM (configurable, default deepseek-reasoner) reviews draft, corrects errors, adds depth, flags weak analysis. Has access to Tavily tools for live fact-checking.
+- **Rewrite**: Low-cost LLM polishes the audited report into clean, analytically dense prose. Uses the same cheap model as draft — it follows instructions, no deep reasoning needed.
 - **Knowledge Base**: `reports/` folder of markdown files. Filename pattern: `{date}-{source}-{project-name}.md`.
 
 ## Automation
 
 - Standalone Python scripts, no web server needed.
 - Scheduled via cron or a simple runner script.
-- Configuration via `.env` or `config.yaml`.
+- Configuration via `config.yaml` with environment variable references in `.env`.
 
 ## Principles
 
