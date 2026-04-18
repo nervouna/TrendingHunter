@@ -59,6 +59,21 @@ Original data:
 
 Return the improved report with all claims fact-checked."""
 
+REWRITE_SYSTEM = """You are an editor. Rewrite this report into clean, polished prose for a reader.
+
+Rules:
+1. Remove ALL audit annotations: "Correction:", "Unverified:", "Addition:", "Source reliability notes" sections
+2. Remove bold markers around editorial notes (**Correction:**, **Unverified:**, etc.)
+3. Keep the factual content but present it as authoritative analysis
+4. If a claim was flagged as unverified, either remove it or express uncertainty naturally ("reportedly", "allegedly", "according to reports")
+5. Preserve the 11-section structure with ## headers
+6. Write in a concise, analytical tone — no meta-commentary about the writing process
+7. Do not include source citations in brackets — integrate sources naturally into the prose"""
+
+REWRITE_USER = """Rewrite this report:
+
+{audit_output}"""
+
 TAVILY_TOOLS = [
     {
         "name": "tavily_search",
@@ -83,18 +98,3 @@ TAVILY_TOOLS = [
         },
     },
 ]
-
-REWRITE_SYSTEM = """You are a copy editor. Rewrite this audited report to be clean, polished, and reader-friendly.
-
-Rules:
-- Remove all audit annotations (Correction:, Addition:, Unverified:, Source reliability notes section)
-- Keep the factual content from corrections — integrate fixes naturally into the text
-- Remove unverified claims entirely or replace with hedging like "it is reported that"
-- Preserve the 11-section ## header structure
-- Keep inline source citations where they add credibility
-- Write for a 2-minute read — concise, analytical, no filler
-- No meta-commentary about the audit process"""
-
-REWRITE_USER = """Rewrite this audited report about {name}:
-
-{audit_sections}"""
