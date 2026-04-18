@@ -6,6 +6,8 @@ from pathlib import Path
 
 import yaml
 
+from trending_hunter.settings import Settings
+
 _ENV_LOADED = False
 
 
@@ -15,9 +17,11 @@ def _load_dotenv(path: str | Path = ".env") -> None:
         return
     _ENV_LOADED = True
     env_path = Path(path)
-    if not env_path.is_file():
+    try:
+        text = env_path.read_text(encoding="utf-8")
+    except FileNotFoundError:
         return
-    for line in env_path.read_text(encoding="utf-8").splitlines():
+    for line in text.splitlines():
         line = line.strip()
         if not line or line.startswith("#"):
             continue
@@ -57,11 +61,11 @@ def _deep_resolve(obj: object) -> object:
     return obj
 
 
-def load_config(path: str | Path = "config.yaml") -> dict[str, object]:
+def load_config(path: str | Path = "config.yaml") -> Settings:
     _load_dotenv()
     with open(path, encoding="utf-8") as f:
         raw = f.read()
     cfg = yaml.safe_load(raw)
     cfg = _apply_env_overrides(cfg)
     cfg = _deep_resolve(cfg)
-    return cfg
+    return Settings.model_validate(cfg)

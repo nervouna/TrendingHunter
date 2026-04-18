@@ -1,5 +1,6 @@
 from trending_hunter.models import Project, Source
 from trending_hunter.gate import filter_projects
+from trending_hunter.settings import SignalGateConfig
 
 
 def _make_project(name: str, velocity: float, age_days: int | None = None, **kwargs: object) -> Project:
@@ -15,11 +16,11 @@ def _make_project(name: str, velocity: float, age_days: int | None = None, **kwa
     )
 
 
-DEFAULT_CONFIG = {
-    "min_star_velocity": 10.0,
-    "max_repo_age_days": 365,
-    "min_first_time_contributors": 0,
-}
+DEFAULT_CONFIG = SignalGateConfig(
+    min_star_velocity=10.0,
+    max_repo_age_days=365,
+    min_first_time_contributors=0,
+)
 
 
 def test_filter_by_velocity():
@@ -62,7 +63,7 @@ def test_filter_by_first_time_contributors():
         _make_project("c/d", 50.0, first_time_contributors=0),
         _make_project("e/f", 50.0, first_time_contributors=None),
     ]
-    config = {**DEFAULT_CONFIG, "min_first_time_contributors": 1}
+    config = SignalGateConfig(min_star_velocity=10.0, max_repo_age_days=365, min_first_time_contributors=1)
     result = filter_projects(projects, config)
     names = [r.name for r in result]
     assert "a/b" in names

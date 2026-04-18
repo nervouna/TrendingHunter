@@ -30,5 +30,13 @@ llm:
 tavily:
   api_key: "${TH_TAVILY_API_KEY}"
 
+model_pricing:
+  MiniMax-M2.7-highspeed:
+    input_per_million: 0.80
+    output_per_million: 4.00
+  deepseek-reasoner:
+    input_per_million: 0.55
+    output_per_million: 2.19
+
 knowledge_base:
   path: "./reports"
