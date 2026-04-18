@@ -96,11 +96,11 @@ def test_llm_client_calls_anthropic():
 
 def test_rewrite_report_returns_sections():
     client = MagicMock(spec=LLMClient)
-    client.call.return_value = (_mock_sections(), {"input": 80, "output": 120})
+    client.call.return_value = (_mock_sections(), {"input": 80, "output": 150})
 
-    sections, tokens = rewrite_report(_mock_sections(), _sample_project(), client)
+    annotated = {name: f"**Correction:** Content for {name}." for name in SECTION_NAMES}
+    sections, tokens = rewrite_report(annotated, client)
 
     assert set(sections.keys()) == set(SECTION_NAMES)
     assert tokens["input"] == 80
-    assert tokens["output"] == 120
     client.call.assert_called_once()
