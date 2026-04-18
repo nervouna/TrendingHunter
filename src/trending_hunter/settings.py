@@ -7,7 +7,6 @@ class GitHubSourceConfig(BaseModel):
     enabled: bool = True
     language: str = ""
     since: str = "daily"
-    token: str = ""
 
 
 class ProductHuntSourceConfig(BaseModel):

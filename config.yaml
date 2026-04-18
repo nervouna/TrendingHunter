@@ -3,7 +3,6 @@ sources:
     enabled: true
     languages: []
     since: "daily"
-    token: "${TH_GITHUB_TOKEN}"
   product_hunt:
     enabled: true
     token: "${TH_PRODUCTHUNT_TOKEN}"
@@ -39,11 +38,11 @@ tavily:
 
 model_pricing:
   MiniMax-M2.7-highspeed:
-    input_per_million: 0.80
-    output_per_million: 4.00
+    input_per_million: 0.00
+    output_per_million: 0.00
   deepseek-reasoner:
-    input_per_million: 0.55
-    output_per_million: 2.19
+    input_per_million: 0.29
+    output_per_million: 0.44
 
 knowledge_base:
   path: "./reports"

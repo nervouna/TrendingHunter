@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import time
 from collections.abc import Callable
 
 import click
@@ -23,18 +24,7 @@ _FETCHERS: dict[str, Callable[..., list[Project]]] = {
 }
 
 
-@click.group()
-def cli() -> None:
-    pass
-
-
-@cli.command()
-@click.option("--source", default="github", help="Data source to fetch from.")
-@click.option("--config", "config_path", default="config.yaml", help="Path to config file.")
-@click.option("--dry-run", is_flag=True, help="Skip LLM calls and report writing.")
-@click.option("--limit", default=0, type=int, help="Max number of repos to analyze (0 = all).")
-def run(source: str, config_path: str, dry_run: bool, limit: int) -> None:
-    setup_logging()
+def run_cycle(source: str, config_path: str, limit: int, dry_run: bool) -> None:
     log = get_logger()
     settings: Settings = load_config(config_path)
 
@@ -92,6 +82,8 @@ def run(source: str, config_path: str, dry_run: bool, limit: int) -> None:
         click.echo(f"\n[{i+1}/{len(results)}] {r.project.name}")
         if r.error:
             click.echo(f"  ERROR: {r.error}")
+        elif r.status == "skipped":
+            click.echo(f"  SKIPPED: {r.file_path} (already exists)")
         else:
             for stage in ("draft", "audit", "rewrite"):
                 tokens = r.token_usage.get(stage)
@@ -99,6 +91,38 @@ def run(source: str, config_path: str, dry_run: bool, limit: int) -> None:
                     click.echo(f"  {stage.title()}: {tokens.input_tokens}+{tokens.output_tokens} tokens")
             click.echo(f"  Saved: {r.file_path}")
             click.echo(f"  Cost: ${r.cost:.4f}")
+
+
+@click.group()
+def cli() -> None:
+    pass
+
+
+@cli.command()
+@click.option("--source", default="github", help="Data source to fetch from.")
+@click.option("--config", "config_path", default="config.yaml", help="Path to config file.")
+@click.option("--dry-run", is_flag=True, help="Skip LLM calls and report writing.")
+@click.option("--limit", default=0, type=int, help="Max number of repos to analyze (0 = all).")
+def run(source: str, config_path: str, dry_run: bool, limit: int) -> None:
+    setup_logging()
+    run_cycle(source, config_path, limit, dry_run)
+
+
+@cli.command()
+@click.option("--source", default="github", help="Data source to fetch from.")
+@click.option("--config", "config_path", default="config.yaml", help="Path to config file.")
+@click.option("--limit", default=0, type=int, help="Max number of repos to analyze (0 = all).")
+@click.option("--interval", default=3600, type=int, help="Seconds between runs.")
+@click.option("--cycles", default=0, type=int, help="Max cycles (0 = infinite).")
+def schedule(source: str, config_path: str, limit: int, interval: int, cycles: int) -> None:
+    setup_logging()
+    cycle = 0
+    while cycles == 0 or cycle < cycles:
+        cycle += 1
+        click.echo(f"\n--- Cycle {cycle} ---")
+        run_cycle(source, config_path, limit, dry_run=False)
+        if cycles == 0 or cycle < cycles:
+            time.sleep(interval)
 
 
 @cli.command()
