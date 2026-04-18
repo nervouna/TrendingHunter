@@ -2,7 +2,13 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from trending_hunter.models import Report
+from trending_hunter.models import Report, Source
+
+_SOURCE_LABELS: dict[Source, tuple[str, str]] = {
+    Source.GITHUB: ("Stars", "stars/day"),
+    Source.HACKER_NEWS: ("Score", "score/day"),
+    Source.PRODUCT_HUNT: ("Votes", "votes/day"),
+}
 
 
 def sections_to_text(sections: dict[str, str]) -> str:
@@ -16,11 +22,16 @@ def render_report(report: Report) -> str:
     lines: list[str] = []
     lines.append(f"# {report.project.name}")
     lines.append("")
+
+    count_label, velocity_label = _SOURCE_LABELS.get(
+        report.project.source, ("Stars", "stars/day")
+    )
+
     lines.append(f"**Source**: {report.project.source.value}")
     lines.append(f"**URL**: {report.project.url}")
-    lines.append(f"**Stars**: {report.project.stars}")
-    lines.append(f"**Velocity**: {report.project.star_velocity:.1f} stars/day")
-    if report.project.repo_age_days is not None:
+    lines.append(f"**{count_label}**: {report.project.stars}")
+    lines.append(f"**Velocity**: {report.project.star_velocity:.1f} {velocity_label}")
+    if report.project.source == Source.GITHUB and report.project.repo_age_days is not None:
         lines.append(f"**Age**: {report.project.repo_age_days} days")
     lines.append(f"**Generated**: {report.generated_at.isoformat()}")
     lines.append(f"**Draft model**: {report.draft_model}")

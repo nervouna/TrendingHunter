@@ -57,6 +57,45 @@ def test_render_report_has_metadata():
     assert "**Rewrite model**:" in text
 
 
+def test_render_report_github_labels():
+    report = _sample_report()
+    text = render_report(report)
+    assert "**Stars**: 500" in text
+    assert "stars/day" in text
+
+
+def test_render_report_hackernews_labels():
+    p = Project(
+        name="Some HN Story",
+        source=Source.HACKER_NEWS,
+        url="https://example.com/story",
+        stars=197,
+        star_velocity=2111.6,
+        description="A story",
+    )
+    report = Report(project=p, draft_model="m", audit_model="m", sections={"TL;DR": "test"}, file_path="")
+    text = render_report(report)
+    assert "**Score**: 197" in text
+    assert "score/day" in text
+    assert "**Age**" not in text
+
+
+def test_render_report_producthunt_labels():
+    p = Project(
+        name="Cool Tool",
+        source=Source.PRODUCT_HUNT,
+        url="https://www.producthunt.com/posts/cool-tool",
+        stars=450,
+        star_velocity=100.0,
+        description="A tool",
+    )
+    report = Report(project=p, draft_model="m", audit_model="m", sections={"TL;DR": "test"}, file_path="")
+    text = render_report(report)
+    assert "**Votes**: 450" in text
+    assert "votes/day" in text
+    assert "**Age**" not in text
+
+
 def test_save_report_creates_file(tmp_path):
     report = _sample_report()
     path = save_report(report, str(tmp_path))
