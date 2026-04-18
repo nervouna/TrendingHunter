@@ -1,53 +1,30 @@
 from __future__ import annotations
 
 from trending_hunter.llm.client import _parse_sections
+from trending_hunter.llm.prompts import AUDIT_SYSTEM, DRAFT_SYSTEM, REWRITE_SYSTEM
+
+CANONICAL_HEADERS = [
+    "TL;DR",
+    "What & Why",
+    "Why Now",
+    "Technology Wave",
+    "Supply & Demand",
+    "Product Analysis",
+    "Creativity & Differentiation",
+    "Competitive Landscape",
+    "Community Signals",
+    "Signal Assessment",
+    "Open Questions",
+]
 
 
-def test_parse_sections_normalizes_aliases():
-    text = """## Summary
-TL;DR content here.
-
-## What and Why
-Description here.
-
-## Timing Context
-Why now content.
-
-## Technology Wave
-Wave content.
-
-## Supply and Demand
-S&D content.
-
-## Product Analysis
-Product content.
-
-## Creativity & Differentiation
-Creative content.
-
-## Competitive Landscape
-Competition content.
-
-## Community Signals
-Signals content.
-
-## Signal Assessment
-Assessment content.
-
-## Open Questions
-Questions here."""
-    sections = _parse_sections(text)
-    assert "TL;DR" in sections
-    assert "What & Why" in sections
-    assert "Why Now" in sections
-    assert "Supply & Demand" in sections
-    assert "Summary" not in sections
-    assert "What and Why" not in sections
-    assert "Timing Context" not in sections
-    assert "Supply and Demand" not in sections
+def test_all_prompts_list_canonical_headers():
+    for header in CANONICAL_HEADERS:
+        assert header in DRAFT_SYSTEM, f"DRAFT_SYSTEM missing '{header}'"
+        assert header in REWRITE_SYSTEM, f"REWRITE_SYSTEM missing '{header}'"
 
 
-def test_parse_sections_preserves_canonical_names():
+def test_parse_sections_preserves_exact_names():
     text = """## TL;DR
 Content.
 

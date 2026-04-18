@@ -40,7 +40,7 @@ Your job:
 1. Correct factual errors — use tavily_search and tavily_extract to verify claims
 2. Add depth where analysis is shallow
 3. Flag sections that are speculative or weak
-4. Preserve the 11-section structure
+4. Preserve the exact section headers from the draft
 
 CRITICAL: Cross-check every claim against your search results. Correct any unsupported statements with evidence. Mark unverified claims explicitly as "unverified".
 
@@ -66,7 +66,7 @@ Rules:
 2. Remove bold markers around editorial notes (**Correction:**, **Unverified:**, etc.)
 3. Keep the factual content but present it as authoritative analysis
 4. If a claim was flagged as unverified, either remove it or express uncertainty naturally ("reportedly", "allegedly", "according to reports")
-5. Preserve the 11-section structure with ## headers
+5. Preserve the exact ## section headers from the input — do NOT rename, reword, or merge them. The headers must be: ## TL;DR, ## What & Why, ## Why Now, ## Technology Wave, ## Supply & Demand, ## Product Analysis, ## Creativity & Differentiation, ## Competitive Landscape, ## Community Signals, ## Signal Assessment, ## Open Questions
 6. Write in a concise, analytical tone — no meta-commentary about the writing process
 7. Do not include source citations in brackets — integrate sources naturally into the prose"""
 
