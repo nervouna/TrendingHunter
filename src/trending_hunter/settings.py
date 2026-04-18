@@ -10,8 +10,19 @@ class GitHubSourceConfig(BaseModel):
     token: str = ""
 
 
+class ProductHuntSourceConfig(BaseModel):
+    enabled: bool = True
+    token: str = ""
+
+
+class HackerNewsSourceConfig(BaseModel):
+    enabled: bool = True
+
+
 class SourcesConfig(BaseModel):
     github: GitHubSourceConfig = GitHubSourceConfig()
+    product_hunt: ProductHuntSourceConfig = ProductHuntSourceConfig()
+    hacker_news: HackerNewsSourceConfig = HackerNewsSourceConfig()
 
 
 class SignalGateConfig(BaseModel):

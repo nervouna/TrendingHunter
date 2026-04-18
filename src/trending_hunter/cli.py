@@ -1,15 +1,26 @@
 from __future__ import annotations
 
+from collections.abc import Callable
+
 import click
 
 from trending_hunter.config import load_config
 from trending_hunter.fetchers.github import fetch_trending
+from trending_hunter.fetchers.producthunt import fetch_producthunt
+from trending_hunter.fetchers.hackernews import fetch_hackernews
 from trending_hunter.gate import filter_projects
 from trending_hunter.llm.tools import _clear_cache
 from trending_hunter.log import get_logger, setup_logging
+from trending_hunter.models import Project
 from trending_hunter.pipeline import run_pipeline
 from trending_hunter.search import search_reports
 from trending_hunter.settings import Settings
+
+_FETCHERS: dict[str, Callable[..., list[Project]]] = {
+    "github": fetch_trending,
+    "product_hunt": fetch_producthunt,
+    "hacker_news": fetch_hackernews,
+}
 
 
 @click.group()
@@ -27,43 +38,65 @@ def run(source: str, config_path: str, dry_run: bool, limit: int) -> None:
     log = get_logger()
     settings: Settings = load_config(config_path)
 
+    fetcher = _FETCHERS.get(source)
+    if fetcher is None:
+        click.echo(f"Unknown source: '{source}'. Available: {', '.join(_FETCHERS)}")
+        return
+
+    try:
+        source_config = getattr(settings.sources, source)
+    except AttributeError:
+        click.echo(f"No configuration found for source '{source}'")
+        return
+
+    if not getattr(source_config, 'enabled', True):
+        click.echo(f"Source '{source}' is disabled.")
+        return
+
+    # Build kwargs for fetcher
+    kwargs = {}
     if source == "github":
-        gh = settings.sources.github
+        kwargs['language'] = source_config.language
+        kwargs['since'] = source_config.since
+        kwargs['proxy'] = settings.proxy or None
+        log.info("Fetching GitHub trending (language=%s, since=%s)", source_config.language, source_config.since)
+    # Future fetchers can add their specific kwargs here
 
-        log.info("Fetching GitHub trending (language=%s, since=%s)", gh.language, gh.since)
-        repos = fetch_trending(language=gh.language, since=gh.since, proxy=settings.proxy or None)
-        click.echo(f"Fetched {len(repos)} trending repos")
+    try:
+        repos = fetcher(**kwargs)
+    except NotImplementedError as exc:
+        click.echo(str(exc))
+        return
 
-        passed = filter_projects(repos, settings.signal_gate)
-        click.echo(f"Passed signal gate: {len(passed)}/{len(repos)}")
+    click.echo(f"Fetched {len(repos)} trending repos")
 
-        if limit > 0:
-            passed = passed[:limit]
-            click.echo(f"Limited to {len(passed)} repo(s)")
+    passed = filter_projects(repos, settings.signal_gate)
+    click.echo(f"Passed signal gate: {len(passed)}/{len(repos)}")
 
-        if dry_run:
-            for r in passed:
-                vel = f"{r.star_velocity:.1f}" if r.star_velocity else "n/a"
-                click.echo(f"  {r.name} | {r.stars} stars | {vel}/day")
-            return
+    if limit > 0:
+        passed = passed[:limit]
+        click.echo(f"Limited to {len(passed)} repo(s)")
 
-        _clear_cache()
-        results = run_pipeline(passed, settings)
+    if dry_run:
+        for r in passed:
+            vel = f"{r.star_velocity:.1f}" if r.star_velocity else "n/a"
+            click.echo(f"  {r.name} | {r.stars} stars | {vel}/day")
+        return
 
-        for i, r in enumerate(results):
-            click.echo(f"\n[{i+1}/{len(results)}] {r.project.name}")
-            if r.error:
-                click.echo(f"  ERROR: {r.error}")
-            else:
-                for stage in ("draft", "audit", "rewrite"):
-                    tokens = r.token_usage.get(stage)
-                    if tokens:
-                        click.echo(f"  {stage.title()}: {tokens.input_tokens}+{tokens.output_tokens} tokens")
-                click.echo(f"  Saved: {r.file_path}")
-                click.echo(f"  Cost: ${r.cost:.4f}")
+    _clear_cache()
+    results = run_pipeline(passed, settings)
 
-    else:
-        click.echo(f"Source '{source}' not yet implemented.")
+    for i, r in enumerate(results):
+        click.echo(f"\n[{i+1}/{len(results)}] {r.project.name}")
+        if r.error:
+            click.echo(f"  ERROR: {r.error}")
+        else:
+            for stage in ("draft", "audit", "rewrite"):
+                tokens = r.token_usage.get(stage)
+                if tokens:
+                    click.echo(f"  {stage.title()}: {tokens.input_tokens}+{tokens.output_tokens} tokens")
+            click.echo(f"  Saved: {r.file_path}")
+            click.echo(f"  Cost: ${r.cost:.4f}")
 
 
 @cli.command()
