@@ -22,8 +22,18 @@ def _parse_sections(text: str) -> dict[str, str]:
 
 
 class LLMClient:
-    def __init__(self, api_key: str, model: str, max_tokens: int = 4096) -> None:
-        self._client = anthropic.Anthropic(api_key=api_key)
+    def __init__(
+        self,
+        api_key: str,
+        model: str,
+        max_tokens: int = 4096,
+        base_url: str | None = None,
+    ) -> None:
+        kwargs: dict[str, object] = {"api_key": api_key}
+        if base_url:
+            base_url = re.sub(r"/v1/messages/?$", "", base_url.rstrip("/"))
+            kwargs["base_url"] = base_url
+        self._client = anthropic.Anthropic(**kwargs)
         self._model = model
         self._max_tokens = max_tokens
 
@@ -34,7 +44,9 @@ class LLMClient:
             system=system,
             messages=[{"role": "user", "content": user}],
         )
-        text = response.content[0].text
+        text = "".join(
+            block.text for block in response.content if hasattr(block, "text")
+        )
         sections = _parse_sections(text)
         tokens = {
             "input": response.usage.input_tokens,

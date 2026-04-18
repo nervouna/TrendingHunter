@@ -6,6 +6,26 @@ from pathlib import Path
 
 import yaml
 
+_ENV_LOADED = False
+
+
+def _load_dotenv(path: str | Path = ".env") -> None:
+    global _ENV_LOADED
+    if _ENV_LOADED:
+        return
+    _ENV_LOADED = True
+    env_path = Path(path)
+    if not env_path.is_file():
+        return
+    for line in env_path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        key, _, value = line.partition("=")
+        key = key.strip()
+        value = value.strip().strip("'\"")
+        os.environ.setdefault(key, value)
+
 
 def _resolve_env_vars(value: str) -> str:
     def replace(match: re.Match) -> str:
@@ -38,6 +58,7 @@ def _deep_resolve(obj: object) -> object:
 
 
 def load_config(path: str | Path = "config.yaml") -> dict[str, object]:
+    _load_dotenv()
     with open(path, encoding="utf-8") as f:
         raw = f.read()
     cfg = yaml.safe_load(raw)
