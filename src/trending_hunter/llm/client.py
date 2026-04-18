@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import re
 import time
 from collections.abc import Callable
@@ -59,7 +60,13 @@ class LLMClient:
         if base_url:
             base_url = re.sub(r"/v1/messages/?$", "", base_url.rstrip("/"))
             kwargs["base_url"] = base_url
+        # Clear env vars that the SDK reads — we pass api_key explicitly
+        _prev = {}
+        for _k in ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN"):
+            if _k in os.environ:
+                _prev[_k] = os.environ.pop(_k)
         self._client = anthropic.Anthropic(**kwargs)
+        os.environ.update(_prev)
         self._model = model
         self._max_tokens = max_tokens
 
