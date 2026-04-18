@@ -16,7 +16,7 @@ class Project(BaseModel):
     name: str
     source: Source
     url: str
-    fetched_at: datetime = Field(default_factory=datetime)
+    fetched_at: datetime = Field(default_factory=datetime.now)
     stars: int
     star_velocity: float
     repo_age_days: int | None = None
@@ -27,7 +27,7 @@ class Project(BaseModel):
 
 class Report(BaseModel):
     project: Project
-    generated_at: datetime = Field(default_factory=datetime)
+    generated_at: datetime = Field(default_factory=datetime.now)
     draft_model: str
     audit_model: str
     token_usage: dict[str, int] = Field(default_factory=lambda: {"draft": 0, "audit": 0})
