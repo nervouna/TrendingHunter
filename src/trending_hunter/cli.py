@@ -56,8 +56,9 @@ def run(source: str, config_path: str, dry_run: bool, limit: int) -> None:
                 click.echo(f"  ERROR: {r.error}")
             else:
                 for stage in ("draft", "audit", "rewrite"):
-                    tokens = r.token_usage.get(stage, {})
-                    click.echo(f"  {stage.title()}: {tokens.get('input', 0)}+{tokens.get('output', 0)} tokens")
+                    tokens = r.token_usage.get(stage)
+                    if tokens:
+                        click.echo(f"  {stage.title()}: {tokens.input_tokens}+{tokens.output_tokens} tokens")
                 click.echo(f"  Saved: {r.file_path}")
                 click.echo(f"  Cost: ${r.cost:.4f}")
 

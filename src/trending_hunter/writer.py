@@ -1,9 +1,15 @@
 from __future__ import annotations
 
-from datetime import datetime
 from pathlib import Path
 
 from trending_hunter.models import Report
+
+
+def sections_to_text(sections: dict[str, str]) -> str:
+    parts: list[str] = []
+    for name, content in sections.items():
+        parts.append(f"## {name}\n{content}")
+    return "\n\n".join(parts)
 
 
 def render_report(report: Report) -> str:
@@ -19,6 +25,8 @@ def render_report(report: Report) -> str:
     lines.append(f"**Generated**: {report.generated_at.isoformat()}")
     lines.append(f"**Draft model**: {report.draft_model}")
     lines.append(f"**Audit model**: {report.audit_model}")
+    if report.rewrite_model:
+        lines.append(f"**Rewrite model**: {report.rewrite_model}")
     lines.append("")
 
     for name, content in report.sections.items():

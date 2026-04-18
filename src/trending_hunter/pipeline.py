@@ -8,7 +8,7 @@ from trending_hunter.llm.client import LLMClient
 from trending_hunter.llm.draft import generate_draft
 from trending_hunter.llm.rewrite import rewrite_report
 from trending_hunter.log import get_logger
-from trending_hunter.models import Project, Report
+from trending_hunter.models import Project, Report, TokenUsage
 from trending_hunter.settings import Settings
 from trending_hunter.writer import save_report
 
@@ -18,7 +18,7 @@ log = get_logger()
 @dataclass
 class PipelineResult:
     project: Project
-    token_usage: dict[str, dict[str, int]] = field(default_factory=dict)
+    token_usage: dict[str, TokenUsage] = field(default_factory=dict)
     file_path: str = ""
     cost: float = 0.0
     error: str | None = None
@@ -48,6 +48,7 @@ def run_pipeline(projects: list[Project], settings: Settings) -> list[PipelineRe
         timeout=settings.llm.rewrite.timeout,
     )
     kb_path = settings.knowledge_base.path
+    pricing = settings.model_pricing or None
 
     results: list[PipelineResult] = []
 
@@ -58,20 +59,17 @@ def run_pipeline(projects: list[Project], settings: Settings) -> list[PipelineRe
             sections, rewrite_tokens = rewrite_report(sections, rewrite_client)
 
             token_usage = {
-                "draft": {"input": draft_tokens["input"], "output": draft_tokens["output"]},
-                "audit": {"input": audit_tokens["input"], "output": audit_tokens["output"]},
-                "rewrite": {"input": rewrite_tokens["input"], "output": rewrite_tokens["output"]},
+                "draft": TokenUsage(input_tokens=draft_tokens["input"], output_tokens=draft_tokens["output"]),
+                "audit": TokenUsage(input_tokens=audit_tokens["input"], output_tokens=audit_tokens["output"]),
+                "rewrite": TokenUsage(input_tokens=rewrite_tokens["input"], output_tokens=rewrite_tokens["output"]),
             }
 
             report = Report(
                 project=project,
                 draft_model=settings.llm.draft.model,
                 audit_model=settings.llm.audit.model,
-                token_usage={
-                    "draft": draft_tokens["input"] + draft_tokens["output"],
-                    "audit": audit_tokens["input"] + audit_tokens["output"],
-                    "rewrite": rewrite_tokens["input"] + rewrite_tokens["output"],
-                },
+                rewrite_model=settings.llm.rewrite.model,
+                token_usage=token_usage,
                 sections=sections,
                 file_path="",
             )
@@ -79,11 +77,11 @@ def run_pipeline(projects: list[Project], settings: Settings) -> list[PipelineRe
             path = save_report(report, base_dir=kb_path)
 
             cost = sum(
-                estimate_cost(model, t["input"], t["output"])
+                estimate_cost(model, t.input_tokens, t.output_tokens, pricing)
                 for model, t in (
-                    (settings.llm.draft.model, draft_tokens),
-                    (settings.llm.audit.model, audit_tokens),
-                    (settings.llm.rewrite.model, rewrite_tokens),
+                    (settings.llm.draft.model, token_usage["draft"]),
+                    (settings.llm.audit.model, token_usage["audit"]),
+                    (settings.llm.rewrite.model, token_usage["rewrite"]),
                 )
             )
 

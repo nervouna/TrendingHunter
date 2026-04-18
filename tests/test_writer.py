@@ -1,8 +1,7 @@
-from datetime import datetime
-
-from trending_hunter.models import Project, Report, Source
-from trending_hunter.writer import render_report, save_report
+from trending_hunter.models import Project, Report, Source, TokenUsage
+from trending_hunter.writer import render_report, save_report, sections_to_text
 from trending_hunter.cost import estimate_cost, format_cost_report
+from trending_hunter.settings import ModelPricing
 
 
 def _sample_report() -> Report:
@@ -17,9 +16,13 @@ def _sample_report() -> Report:
     )
     return Report(
         project=p,
-        draft_model="claude-haiku-4-5-20251001",
-        audit_model="claude-sonnet-4-5-20250514",
-        token_usage={"draft": 300, "audit": 500},
+        draft_model="draft-m",
+        audit_model="audit-m",
+        rewrite_model="rewrite-m",
+        token_usage={
+            "draft": TokenUsage(input_tokens=100, output_tokens=200),
+            "audit": TokenUsage(input_tokens=150, output_tokens=250),
+        },
         sections={
             "TL;DR": "This is a cool project.",
             "What & Why": "Solves X problem.",
@@ -51,6 +54,7 @@ def test_render_report_has_metadata():
     assert "github" in text
     assert "**Draft model**:" in text
     assert "**Audit model**:" in text
+    assert "**Rewrite model**:" in text
 
 
 def test_save_report_creates_file(tmp_path):
@@ -70,13 +74,31 @@ def test_save_report_idempotent(tmp_path):
     assert path1.exists()
 
 
-def test_estimate_cost():
-    cost = estimate_cost("claude-haiku-4-5-20251001", 1000, 500)
+def test_estimate_cost_with_pricing():
+    pricing = {"m1": ModelPricing(input_per_million=1.0, output_per_million=2.0)}
+    cost = estimate_cost("m1", 1_000_000, 1_000_000, pricing)
+    assert cost == 3.0
+
+
+def test_estimate_cost_without_pricing():
+    cost = estimate_cost("unknown-model", 1000, 500)
     assert cost > 0
 
 
 def test_format_cost_report():
-    token_usage = {"draft": 300, "audit": 500}
+    token_usage = {
+        "draft": TokenUsage(input_tokens=100, output_tokens=200),
+        "audit": TokenUsage(input_tokens=200, output_tokens=300),
+    }
     text = format_cost_report(token_usage)
-    assert "draft" in text
-    assert "audit" in text
+    assert "draft: 300 tokens" in text
+    assert "audit: 500 tokens" in text
+    assert "total: 800 tokens" in text
+
+
+def test_sections_to_text():
+    sections = {"TL;DR": "Summary.", "What & Why": "Details."}
+    text = sections_to_text(sections)
+    assert "## TL;DR" in text
+    assert "## What & Why" in text
+    assert "Summary." in text

@@ -25,11 +25,21 @@ class Project(BaseModel):
     readme_excerpt: str = ""
 
 
+class TokenUsage(BaseModel):
+    input_tokens: int = 0
+    output_tokens: int = 0
+
+
 class Report(BaseModel):
     project: Project
     generated_at: datetime = Field(default_factory=datetime.now)
     draft_model: str
     audit_model: str
-    token_usage: dict[str, int] = Field(default_factory=lambda: {"draft": 0, "audit": 0})
+    rewrite_model: str = ""
+    token_usage: dict[str, TokenUsage] = Field(default_factory=lambda: {
+        "draft": TokenUsage(),
+        "audit": TokenUsage(),
+        "rewrite": TokenUsage(),
+    })
     sections: dict[str, str]
     file_path: str

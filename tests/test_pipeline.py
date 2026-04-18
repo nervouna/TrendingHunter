@@ -1,4 +1,4 @@
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 from trending_hunter.models import Project, Source
 from trending_hunter.pipeline import PipelineResult, run_pipeline
@@ -80,9 +80,9 @@ def test_run_pipeline_returns_results(mock_draft, mock_audit, mock_rewrite, mock
     assert isinstance(r, PipelineResult)
     assert r.error is None
     assert r.project.name == "owner/repo"
-    assert r.token_usage["draft"]["input"] == 100
-    assert r.token_usage["audit"]["input"] == 150
-    assert r.token_usage["rewrite"]["input"] == 80
+    assert r.token_usage["draft"].input_tokens == 100
+    assert r.token_usage["audit"].input_tokens == 150
+    assert r.token_usage["rewrite"].input_tokens == 80
 
 
 @patch("trending_hunter.pipeline.save_report")
