@@ -74,6 +74,16 @@ REWRITE_USER = """Rewrite this report:
 
 {audit_output}"""
 
+LANGUAGE_MODIFIER = "\n\nWrite the entire report in {language}. Section headers must also be translated."
+
+
+def get_language_modifier(language: str) -> str:
+    """Return the system prompt modifier for the specified language, or empty string if not provided."""
+    if not language:
+        return ""
+    return LANGUAGE_MODIFIER.format(language=language)
+
+
 TAVILY_TOOLS = [
     {
         "name": "tavily_search",

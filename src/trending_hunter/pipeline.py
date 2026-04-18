@@ -25,7 +25,7 @@ class PipelineResult:
     error: str | None = None
 
 
-def run_pipeline(projects: list[Project], settings: Settings) -> list[PipelineResult]:
+def run_pipeline(projects: list[Project], settings: Settings, language: str = "") -> list[PipelineResult]:
     tavily_key = settings.tavily.api_key or None
     draft_client = LLMClient(
         api_key=settings.llm.draft.api_key,
@@ -61,9 +61,9 @@ def run_pipeline(projects: list[Project], settings: Settings) -> list[PipelineRe
             continue
 
         try:
-            draft, draft_tokens = generate_draft(project, draft_client, tavily_key=tavily_key)
-            sections, audit_tokens = audit_report(draft, project, audit_client, tavily_key=tavily_key)
-            sections, rewrite_tokens = rewrite_report(sections, rewrite_client)
+            draft, draft_tokens = generate_draft(project, draft_client, tavily_key=tavily_key, language=language)
+            sections, audit_tokens = audit_report(draft, project, audit_client, tavily_key=tavily_key, language=language)
+            sections, rewrite_tokens = rewrite_report(sections, rewrite_client, language=language)
 
             token_usage = {
                 "draft": TokenUsage(input_tokens=draft_tokens["input"], output_tokens=draft_tokens["output"]),

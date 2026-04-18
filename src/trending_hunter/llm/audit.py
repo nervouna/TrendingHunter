@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from trending_hunter.llm.client import LLMClient
-from trending_hunter.llm.prompts import AUDIT_SYSTEM, AUDIT_USER, TAVILY_TOOLS
+from trending_hunter.llm.prompts import AUDIT_SYSTEM, AUDIT_USER, TAVILY_TOOLS, get_language_modifier
 from trending_hunter.llm.tools import tavily_extract, tavily_search
 from trending_hunter.models import Project
 from trending_hunter.writer import sections_to_text
@@ -22,6 +22,7 @@ def audit_report(
     project: Project,
     client: LLMClient,
     tavily_key: str | None = None,
+    language: str = "",
 ) -> tuple[dict[str, str], dict[str, int]]:
     user = AUDIT_USER.format(
         name=project.name,
@@ -33,8 +34,10 @@ def audit_report(
         url=project.url,
     )
 
+    system = AUDIT_SYSTEM + get_language_modifier(language)
+
     if tavily_key:
         handler = _make_tool_handler(tavily_key)
-        return client.call_with_tools(AUDIT_SYSTEM, user, TAVILY_TOOLS, handler)
+        return client.call_with_tools(system, user, TAVILY_TOOLS, handler)
 
-    return client.call(AUDIT_SYSTEM, user)
+    return client.call(system, user)

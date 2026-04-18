@@ -1,6 +1,7 @@
 from datetime import date
 from pathlib import Path
 from unittest.mock import patch
+import pytest
 
 from trending_hunter.models import Project, Source
 from trending_hunter.pipeline import PipelineResult, run_pipeline
@@ -119,6 +120,26 @@ def test_run_pipeline_partial_failure(mock_draft, mock_audit, mock_rewrite, mock
     assert results[0].error is not None
     assert "LLM down" in results[0].error
     assert results[1].error is not None
+
+
+@pytest.mark.parametrize("language", ["chinese", ""])
+@patch("trending_hunter.pipeline.save_report")
+@patch("trending_hunter.pipeline.rewrite_report", return_value=MOCK_REWRITE)
+@patch("trending_hunter.pipeline.audit_report", return_value=MOCK_AUDIT)
+@patch("trending_hunter.pipeline.generate_draft", return_value=MOCK_DRAFT)
+def test_run_pipeline_passes_language_to_stages(mock_draft, mock_audit, mock_rewrite, mock_save, language, tmp_path):
+    mock_save.return_value = tmp_path / "report.md"
+    settings = _sample_settings()
+    projects = [_sample_project()]
+
+    run_pipeline(projects, settings, language=language)
+
+    mock_draft.assert_called_once()
+    assert mock_draft.call_args[1]["language"] == language
+    mock_audit.assert_called_once()
+    assert mock_audit.call_args[1]["language"] == language
+    mock_rewrite.assert_called_once()
+    assert mock_rewrite.call_args[1]["language"] == language
 
 
 @patch("trending_hunter.pipeline.save_report")

@@ -24,7 +24,7 @@ _FETCHERS: dict[str, Callable[..., list[Project]]] = {
 }
 
 
-def run_cycle(source: str, config_path: str, limit: int, dry_run: bool) -> None:
+def run_cycle(source: str, config_path: str, limit: int, dry_run: bool, language: str = "") -> None:
     log = get_logger()
     settings: Settings = load_config(config_path)
 
@@ -76,7 +76,7 @@ def run_cycle(source: str, config_path: str, limit: int, dry_run: bool) -> None:
         return
 
     _clear_cache()
-    results = run_pipeline(passed, settings)
+    results = run_pipeline(passed, settings, language=language)
 
     for i, r in enumerate(results):
         click.echo(f"\n[{i+1}/{len(results)}] {r.project.name}")
@@ -98,14 +98,19 @@ def cli() -> None:
     pass
 
 
+def add_language_option(func):
+    return click.option("--language", "-l", default="", help="Output report language (e.g. chinese, japanese).")(func)
+
+
 @cli.command()
 @click.option("--source", default="github", help="Data source to fetch from.")
 @click.option("--config", "config_path", default="config.yaml", help="Path to config file.")
 @click.option("--dry-run", is_flag=True, help="Skip LLM calls and report writing.")
 @click.option("--limit", default=0, type=int, help="Max number of repos to analyze (0 = all).")
-def run(source: str, config_path: str, dry_run: bool, limit: int) -> None:
+@add_language_option
+def run(source: str, config_path: str, dry_run: bool, limit: int, language: str) -> None:
     setup_logging()
-    run_cycle(source, config_path, limit, dry_run)
+    run_cycle(source, config_path, limit, dry_run, language=language)
 
 
 @cli.command()
@@ -114,13 +119,14 @@ def run(source: str, config_path: str, dry_run: bool, limit: int) -> None:
 @click.option("--limit", default=0, type=int, help="Max number of repos to analyze (0 = all).")
 @click.option("--interval", default=3600, type=int, help="Seconds between runs.")
 @click.option("--cycles", default=0, type=int, help="Max cycles (0 = infinite).")
-def schedule(source: str, config_path: str, limit: int, interval: int, cycles: int) -> None:
+@add_language_option
+def schedule(source: str, config_path: str, limit: int, interval: int, cycles: int, language: str) -> None:
     setup_logging()
     cycle = 0
     while cycles == 0 or cycle < cycles:
         cycle += 1
         click.echo(f"\n--- Cycle {cycle} ---")
-        run_cycle(source, config_path, limit, dry_run=False)
+        run_cycle(source, config_path, limit, dry_run=False, language=language)
         if cycles == 0 or cycle < cycles:
             time.sleep(interval)
 
