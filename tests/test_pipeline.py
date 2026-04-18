@@ -1,3 +1,5 @@
+from datetime import date
+from pathlib import Path
 from unittest.mock import patch
 
 from trending_hunter.models import Project, Source
@@ -11,6 +13,7 @@ from trending_hunter.settings import (
     SourcesConfig,
     TavilyConfig,
 )
+from trending_hunter.writer import build_expected_filename
 
 
 def _sample_project(name: str = "owner/repo") -> Project:
@@ -116,3 +119,32 @@ def test_run_pipeline_partial_failure(mock_draft, mock_audit, mock_rewrite, mock
     assert results[0].error is not None
     assert "LLM down" in results[0].error
     assert results[1].error is not None
+
+
+@patch("trending_hunter.pipeline.save_report")
+@patch("trending_hunter.pipeline.rewrite_report", return_value=MOCK_REWRITE)
+@patch("trending_hunter.pipeline.audit_report", return_value=MOCK_AUDIT)
+@patch("trending_hunter.pipeline.generate_draft", return_value=MOCK_DRAFT)
+def test_run_pipeline_skips_existing_report(mock_draft, mock_audit, mock_rewrite, mock_save, tmp_path):
+    mock_save.return_value = tmp_path / "report.md"
+    settings = _sample_settings()
+    settings.knowledge_base = KnowledgeBaseConfig(path=str(tmp_path))
+
+    project = _sample_project("owner/repo")
+    today = date.today().isoformat()
+    filename = build_expected_filename(project, today)
+    (tmp_path / filename).write_text("existing report")
+
+    results = run_pipeline([project], settings)
+
+    mock_draft.assert_not_called()
+    mock_audit.assert_not_called()
+    mock_rewrite.assert_not_called()
+    mock_save.assert_not_called()
+
+    assert len(results) == 1
+    r = results[0]
+    assert r.status == "skipped"
+    assert r.error is None
+    assert r.file_path.endswith(filename)
+    assert r.cost == 0.0

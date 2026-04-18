@@ -10,7 +10,7 @@ from trending_hunter.llm.rewrite import rewrite_report
 from trending_hunter.log import get_logger
 from trending_hunter.models import Project, Report, TokenUsage
 from trending_hunter.settings import Settings
-from trending_hunter.writer import save_report
+from trending_hunter.writer import get_report_path, save_report
 
 log = get_logger()
 
@@ -21,6 +21,7 @@ class PipelineResult:
     token_usage: dict[str, TokenUsage] = field(default_factory=dict)
     file_path: str = ""
     cost: float = 0.0
+    status: str = "success"
     error: str | None = None
 
 
@@ -53,6 +54,12 @@ def run_pipeline(projects: list[Project], settings: Settings) -> list[PipelineRe
     results: list[PipelineResult] = []
 
     for project in projects:
+        existing = get_report_path(project, kb_path)
+        if existing.exists():
+            log.info("Skipping %s — report already exists at %s", project.name, existing)
+            results.append(PipelineResult(project=project, file_path=str(existing), status="skipped"))
+            continue
+
         try:
             draft, draft_tokens = generate_draft(project, draft_client, tavily_key=tavily_key)
             sections, audit_tokens = audit_report(draft, project, audit_client, tavily_key=tavily_key)
@@ -94,6 +101,6 @@ def run_pipeline(projects: list[Project], settings: Settings) -> list[PipelineRe
 
         except Exception as exc:
             log.error("Failed to process %s: %s", project.name, exc)
-            results.append(PipelineResult(project=project, error=str(exc)))
+            results.append(PipelineResult(project=project, error=str(exc), status="error"))
 
     return results
