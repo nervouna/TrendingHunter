@@ -1,0 +1,22 @@
+sources:
+  github:
+    enabled: true
+    languages: []
+    since: "daily"
+
+signal_gate:
+  min_star_velocity: 10.0
+  max_repo_age_days: 365
+  min_first_time_contributors: 0
+
+llm:
+  api_key: "${ANTHROPIC_API_KEY}"
+  draft:
+    model: "claude-haiku-4-5-20251001"
+    max_tokens: 4096
+  audit:
+    model: "claude-sonnet-4-5-20250514"
+    max_tokens: 4096
+
+knowledge_base:
+  path: "./reports"
