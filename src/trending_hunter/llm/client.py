@@ -13,7 +13,45 @@ from trending_hunter.log import get_logger
 _SECTION_RE = re.compile(r"^## (.+)$", re.MULTILINE)
 _T = TypeVar("_T")
 
+_CANONICAL_SECTIONS = [
+    "TL;DR",
+    "What & Why",
+    "Why Now",
+    "Technology Wave",
+    "Supply & Demand",
+    "Product Analysis",
+    "Creativity & Differentiation",
+    "Competitive Landscape",
+    "Community Signals",
+    "Signal Assessment",
+    "Open Questions",
+]
+
+_SECTION_ALIASES: dict[str, str] = {}
+for _canon in _CANONICAL_SECTIONS:
+    _SECTION_ALIASES[_canon.lower()] = _canon
+    _SECTION_ALIASES[_canon.lower().replace("&", "and")] = _canon
+
+_EXPLICIT_ALIASES = {
+    "summary": "TL;DR",
+    "tldr": "TL;DR",
+    "what and why": "What & Why",
+    "what & why": "What & Why",
+    "timing context": "Why Now",
+    "timing": "Why Now",
+    "community & development signals": "Community Signals",
+    "community and development signals": "Community Signals",
+    "open questions & risks": "Open Questions",
+    "open questions and risks": "Open Questions",
+}
+_SECTION_ALIASES.update(_EXPLICIT_ALIASES)
+
 log = get_logger()
+
+
+def _normalize_section_name(name: str) -> str:
+    key = name.strip().lower().replace("&", "and")
+    return _SECTION_ALIASES.get(key, name.strip())
 
 
 def _parse_sections(text: str) -> dict[str, str]:
@@ -23,7 +61,7 @@ def _parse_sections(text: str) -> dict[str, str]:
 
     sections: dict[str, str] = {}
     for i, m in enumerate(matches):
-        name = m.group(1).strip()
+        name = _normalize_section_name(m.group(1))
         start = m.end()
         end = matches[i + 1].start() if i + 1 < len(matches) else len(text)
         sections[name] = text[start:end].strip()
