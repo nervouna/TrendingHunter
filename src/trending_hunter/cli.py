@@ -70,11 +70,11 @@ def run(source: str, config_path: str, dry_run: bool, limit: int) -> None:
         llm_cfg = cfg.get("llm", {})
         draft_cfg = llm_cfg.get("draft", {})
         audit_cfg = llm_cfg.get("audit", {})
-        rewrite_cfg = llm_cfg.get("rewrite", {})
 
         draft_client = _make_llm_client(draft_cfg, "claude-haiku-4-5-20251001", timeout=120.0)
         audit_client = _make_llm_client(audit_cfg, "claude-sonnet-4-5-20250514", timeout=300.0)
-        rewrite_client = _make_llm_client(rewrite_cfg, "claude-haiku-4-5-20251001", timeout=120.0)
+        rewrite_cfg = llm_cfg.get("rewrite", draft_cfg)
+        rewrite_client = _make_llm_client(rewrite_cfg, draft_cfg.get("model", "claude-haiku-4-5-20251001"), timeout=120.0)
 
         kb_path = cfg.get("knowledge_base", {}).get("path", "./reports")
 
@@ -90,7 +90,7 @@ def run(source: str, config_path: str, dry_run: bool, limit: int) -> None:
             sections, audit_tokens = audit_report(draft, project, audit_client, tavily_key=tavily_key)
             click.echo(f"  Audit: {audit_tokens['input']}+{audit_tokens['output']} tokens")
 
-            final, rewrite_tokens = rewrite_report(sections, project, rewrite_client)
+            sections, rewrite_tokens = rewrite_report(sections, rewrite_client)
             click.echo(f"  Rewrite: {rewrite_tokens['input']}+{rewrite_tokens['output']} tokens")
 
             total_tokens = {
@@ -104,7 +104,7 @@ def run(source: str, config_path: str, dry_run: bool, limit: int) -> None:
                 draft_model=draft_cfg.get("model", ""),
                 audit_model=audit_cfg.get("model", ""),
                 token_usage=total_tokens,
-                sections=final,
+                sections=sections,
                 file_path="",
             )
 
