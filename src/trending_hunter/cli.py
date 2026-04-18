@@ -15,11 +15,12 @@ from trending_hunter.writer import save_report
 from trending_hunter.cost import estimate_cost, format_cost_report
 
 
-def _make_llm_client(api_key: str, stage_cfg: dict, default_model: str) -> LLMClient:
+def _make_llm_client(stage_cfg: dict, default_model: str) -> LLMClient:
     return LLMClient(
-        api_key=api_key,
+        api_key=stage_cfg.get("api_key", ""),
         model=stage_cfg.get("model", default_model),
         max_tokens=stage_cfg.get("max_tokens", 4096),
+        base_url=stage_cfg.get("base_url") or None,
     )
 
 
@@ -48,23 +49,21 @@ def run(source: str, config_path: str, dry_run: bool) -> None:
         passed = filter_projects(repos, gate_config)
         click.echo(f"Passed signal gate: {len(passed)}/{len(repos)}")
 
-        token = cfg.get("github_token")
-
         if dry_run:
             for r in passed:
                 vel = f"{r.star_velocity:.1f}" if r.star_velocity else "n/a"
                 click.echo(f"  {r.name} | {r.stars} stars | {vel}/day")
             return
 
-        enriched = enrich_projects(passed, token=token)
+        tavily_key = cfg.get("tavily", {}).get("api_key") or None
+        enriched = enrich_projects(passed, tavily_key=tavily_key)
 
         llm_cfg = cfg.get("llm", {})
-        api_key = llm_cfg.get("api_key", "")
         draft_cfg = llm_cfg.get("draft", {})
         audit_cfg = llm_cfg.get("audit", {})
 
-        draft_client = _make_llm_client(api_key, draft_cfg, "claude-haiku-4-5-20251001")
-        audit_client = _make_llm_client(api_key, audit_cfg, "claude-sonnet-4-5-20250514")
+        draft_client = _make_llm_client(draft_cfg, "claude-haiku-4-5-20251001")
+        audit_client = _make_llm_client(audit_cfg, "claude-sonnet-4-5-20250514")
 
         kb_path = cfg.get("knowledge_base", {}).get("path", "./reports")
 

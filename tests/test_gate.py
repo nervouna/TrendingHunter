@@ -59,18 +59,11 @@ def test_filter_empty():
     assert result == []
 
 
-def test_enrich_adds_repo_age(enrich_stub):
+def test_enrich_adds_readme(enrich_stub):
     projects = [_make_project("a/b", 50.0)]
-    enriched = enrich_projects(projects, token="fake")
+    enriched = enrich_projects(projects, tavily_key="fake")
     assert len(enriched) == 1
-    assert enriched[0].repo_age_days is not None
-    assert enriched[0].repo_age_days > 0
-
-
-def test_enrich_adds_first_time_contributors(enrich_stub):
-    projects = [_make_project("a/b", 50.0)]
-    enriched = enrich_projects(projects, token="fake")
-    assert enriched[0].first_time_contributors == 2
+    assert enriched[0].readme_excerpt == "# Test Repo\nThis is a test README."
 
 
 def test_filter_by_first_time_contributors():
