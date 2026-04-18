@@ -53,14 +53,16 @@ def run(source: str, config_path: str, dry_run: bool, limit: int) -> None:
         click.echo(f"Source '{source}' is disabled.")
         return
 
-    # Build kwargs for fetcher
-    kwargs = {}
+    kwargs: dict[str, object] = {"proxy": settings.proxy or None}
     if source == "github":
         kwargs['language'] = source_config.language
         kwargs['since'] = source_config.since
-        kwargs['proxy'] = settings.proxy or None
         log.info("Fetching GitHub trending (language=%s, since=%s)", source_config.language, source_config.since)
-    # Future fetchers can add their specific kwargs here
+    elif source == "hacker_news":
+        kwargs['top_n'] = source_config.top_n
+    elif source == "product_hunt":
+        kwargs['token'] = source_config.token
+        kwargs['top_n'] = source_config.top_n
 
     try:
         repos = fetcher(**kwargs)

@@ -4,6 +4,13 @@ sources:
     languages: []
     since: "daily"
     token: "${TH_GITHUB_TOKEN}"
+  product_hunt:
+    enabled: true
+    token: "${TH_PRODUCTHUNT_TOKEN}"
+    top_n: 20
+  hacker_news:
+    enabled: true
+    top_n: 30
 
 signal_gate:
   min_star_velocity: 10.0

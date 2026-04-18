@@ -17,6 +17,7 @@ class ProductHuntSourceConfig(BaseModel):
 
 class HackerNewsSourceConfig(BaseModel):
     enabled: bool = True
+    top_n: int = 30
 
 
 class SourcesConfig(BaseModel):
