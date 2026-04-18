@@ -11,7 +11,7 @@ A standalone CLI tool that fetches trending open-source projects from multiple s
 **I want to** fetch trending repositories from GitHub, Product Hunt, and Hacker News in one command
 **So that** I don't need to browse each source manually
 
-**Status:** GitHub only. Product Hunt and Hacker News not implemented.
+**Status:** GitHub, Product Hunt, and Hacker News implemented.
 
 ### US-2: Automatic Signal Filtering
 **As a** user
@@ -99,8 +99,8 @@ A standalone CLI tool that fetches trending open-source projects from multiple s
 
 | ID | Feature | Description | Status |
 |----|---------|-------------|--------|
-| F-10 | Product Hunt Fetcher | Fetch new launches from Product Hunt | **Not started** |
-| F-11 | Hacker News Fetcher | Fetch front-page projects/discussions from HN API | **Not started** |
+| F-10 | Product Hunt Fetcher | Fetch new launches from Product Hunt | **Done** |
+| F-11 | Hacker News Fetcher | Fetch front-page projects/discussions from HN API | **Done** |
 | F-12 | Knowledge Base Search | CLI search across reports by keyword, date range, source | **Done** |
 | F-13 | Cost & Token Tracker | Log token usage and estimated cost per pipeline run | **Done** |
 | F-14 | Scheduler / Runner | Wrapper for cron or built-in interval runner | **Not started** |
