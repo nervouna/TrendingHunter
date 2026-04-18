@@ -1,0 +1,43 @@
+from __future__ import annotations
+
+import re
+
+import anthropic
+
+_SECTION_RE = re.compile(r"^## (.+)$", re.MULTILINE)
+
+
+def _parse_sections(text: str) -> dict[str, str]:
+    matches = list(_SECTION_RE.finditer(text))
+    if not matches:
+        return {"TL;DR": text.strip()}
+
+    sections: dict[str, str] = {}
+    for i, m in enumerate(matches):
+        name = m.group(1).strip()
+        start = m.end()
+        end = matches[i + 1].start() if i + 1 < len(matches) else len(text)
+        sections[name] = text[start:end].strip()
+    return sections
+
+
+class LLMClient:
+    def __init__(self, api_key: str, model: str, max_tokens: int = 4096) -> None:
+        self._client = anthropic.Anthropic(api_key=api_key)
+        self._model = model
+        self._max_tokens = max_tokens
+
+    def call(self, system: str, user: str) -> tuple[dict[str, str], dict[str, int]]:
+        response = self._client.messages.create(
+            model=self._model,
+            max_tokens=self._max_tokens,
+            system=system,
+            messages=[{"role": "user", "content": user}],
+        )
+        text = response.content[0].text
+        sections = _parse_sections(text)
+        tokens = {
+            "input": response.usage.input_tokens,
+            "output": response.usage.output_tokens,
+        }
+        return sections, tokens
