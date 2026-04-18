@@ -1,0 +1,118 @@
+from unittest.mock import MagicMock, patch
+
+from trending_hunter.models import Project, Source
+from trending_hunter.pipeline import PipelineResult, run_pipeline
+from trending_hunter.settings import (
+    KnowledgeBaseConfig,
+    LLMConfig,
+    LLMStageConfig,
+    Settings,
+    SignalGateConfig,
+    SourcesConfig,
+    TavilyConfig,
+)
+
+
+def _sample_project(name: str = "owner/repo") -> Project:
+    return Project(
+        name=name,
+        source=Source.GITHUB,
+        url=f"https://github.com/{name}",
+        stars=500,
+        star_velocity=50.0,
+        repo_age_days=30,
+        description="A cool project",
+        readme_excerpt="# Repo\nThis does cool things.",
+    )
+
+
+def _sample_settings() -> Settings:
+    return Settings(
+        sources=SourcesConfig(),
+        signal_gate=SignalGateConfig(),
+        llm=LLMConfig(
+            draft=LLMStageConfig(api_key="k", model="draft-model", timeout=120.0),
+            audit=LLMStageConfig(api_key="k", model="audit-model", timeout=300.0),
+            rewrite=LLMStageConfig(api_key="k", model="rewrite-model", timeout=120.0),
+        ),
+        tavily=TavilyConfig(api_key="tavily-key"),
+        knowledge_base=KnowledgeBaseConfig(path="./reports"),
+    )
+
+
+SECTION_NAMES = [
+    "TL;DR",
+    "What & Why",
+    "Why Now",
+    "Technology Wave",
+    "Supply & Demand",
+    "Product Analysis",
+    "Creativity & Differentiation",
+    "Competitive Landscape",
+    "Community Signals",
+    "Signal Assessment",
+    "Open Questions",
+]
+
+
+def _mock_sections() -> dict[str, str]:
+    return {name: f"Content for {name}." for name in SECTION_NAMES}
+
+
+MOCK_DRAFT = (_mock_sections(), {"input": 100, "output": 200})
+MOCK_AUDIT = (_mock_sections(), {"input": 150, "output": 250})
+MOCK_REWRITE = (_mock_sections(), {"input": 80, "output": 150})
+
+
+@patch("trending_hunter.pipeline.save_report")
+@patch("trending_hunter.pipeline.rewrite_report", return_value=MOCK_REWRITE)
+@patch("trending_hunter.pipeline.audit_report", return_value=MOCK_AUDIT)
+@patch("trending_hunter.pipeline.generate_draft", return_value=MOCK_DRAFT)
+def test_run_pipeline_returns_results(mock_draft, mock_audit, mock_rewrite, mock_save, tmp_path):
+    mock_save.return_value = tmp_path / "report.md"
+    settings = _sample_settings()
+    projects = [_sample_project()]
+
+    results = run_pipeline(projects, settings)
+
+    assert len(results) == 1
+    r = results[0]
+    assert isinstance(r, PipelineResult)
+    assert r.error is None
+    assert r.project.name == "owner/repo"
+    assert r.token_usage["draft"]["input"] == 100
+    assert r.token_usage["audit"]["input"] == 150
+    assert r.token_usage["rewrite"]["input"] == 80
+
+
+@patch("trending_hunter.pipeline.save_report")
+@patch("trending_hunter.pipeline.rewrite_report", return_value=MOCK_REWRITE)
+@patch("trending_hunter.pipeline.audit_report", return_value=MOCK_AUDIT)
+@patch("trending_hunter.pipeline.generate_draft", return_value=MOCK_DRAFT)
+def test_run_pipeline_multiple_projects(mock_draft, mock_audit, mock_rewrite, mock_save, tmp_path):
+    mock_save.return_value = tmp_path / "report.md"
+    settings = _sample_settings()
+    projects = [_sample_project("a/b"), _sample_project("c/d")]
+
+    results = run_pipeline(projects, settings)
+
+    assert len(results) == 2
+    assert results[0].error is None
+    assert results[1].error is None
+
+
+@patch("trending_hunter.pipeline.save_report")
+@patch("trending_hunter.pipeline.rewrite_report", return_value=MOCK_REWRITE)
+@patch("trending_hunter.pipeline.audit_report", return_value=MOCK_AUDIT)
+@patch("trending_hunter.pipeline.generate_draft", side_effect=RuntimeError("LLM down"))
+def test_run_pipeline_partial_failure(mock_draft, mock_audit, mock_rewrite, mock_save, tmp_path):
+    mock_save.return_value = tmp_path / "report.md"
+    settings = _sample_settings()
+    projects = [_sample_project("a/b"), _sample_project("c/d")]
+
+    results = run_pipeline(projects, settings)
+
+    assert len(results) == 2
+    assert results[0].error is not None
+    assert "LLM down" in results[0].error
+    assert results[1].error is not None

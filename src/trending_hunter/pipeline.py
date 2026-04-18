@@ -1,0 +1,101 @@
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+
+from trending_hunter.cost import estimate_cost
+from trending_hunter.llm.audit import audit_report
+from trending_hunter.llm.client import LLMClient
+from trending_hunter.llm.draft import generate_draft
+from trending_hunter.llm.rewrite import rewrite_report
+from trending_hunter.log import get_logger
+from trending_hunter.models import Project, Report
+from trending_hunter.settings import Settings
+from trending_hunter.writer import save_report
+
+log = get_logger()
+
+
+@dataclass
+class PipelineResult:
+    project: Project
+    token_usage: dict[str, dict[str, int]] = field(default_factory=dict)
+    file_path: str = ""
+    cost: float = 0.0
+    error: str | None = None
+
+
+def run_pipeline(projects: list[Project], settings: Settings) -> list[PipelineResult]:
+    tavily_key = settings.tavily.api_key or None
+    draft_client = LLMClient(
+        api_key=settings.llm.draft.api_key,
+        model=settings.llm.draft.model,
+        max_tokens=settings.llm.draft.max_tokens,
+        base_url=settings.llm.draft.base_url or None,
+        timeout=settings.llm.draft.timeout,
+    )
+    audit_client = LLMClient(
+        api_key=settings.llm.audit.api_key,
+        model=settings.llm.audit.model,
+        max_tokens=settings.llm.audit.max_tokens,
+        base_url=settings.llm.audit.base_url or None,
+        timeout=settings.llm.audit.timeout,
+    )
+    rewrite_client = LLMClient(
+        api_key=settings.llm.rewrite.api_key,
+        model=settings.llm.rewrite.model,
+        max_tokens=settings.llm.rewrite.max_tokens,
+        base_url=settings.llm.rewrite.base_url or None,
+        timeout=settings.llm.rewrite.timeout,
+    )
+    kb_path = settings.knowledge_base.path
+
+    results: list[PipelineResult] = []
+
+    for project in projects:
+        try:
+            draft, draft_tokens = generate_draft(project, draft_client, tavily_key=tavily_key)
+            sections, audit_tokens = audit_report(draft, project, audit_client, tavily_key=tavily_key)
+            sections, rewrite_tokens = rewrite_report(sections, rewrite_client)
+
+            token_usage = {
+                "draft": {"input": draft_tokens["input"], "output": draft_tokens["output"]},
+                "audit": {"input": audit_tokens["input"], "output": audit_tokens["output"]},
+                "rewrite": {"input": rewrite_tokens["input"], "output": rewrite_tokens["output"]},
+            }
+
+            report = Report(
+                project=project,
+                draft_model=settings.llm.draft.model,
+                audit_model=settings.llm.audit.model,
+                token_usage={
+                    "draft": draft_tokens["input"] + draft_tokens["output"],
+                    "audit": audit_tokens["input"] + audit_tokens["output"],
+                    "rewrite": rewrite_tokens["input"] + rewrite_tokens["output"],
+                },
+                sections=sections,
+                file_path="",
+            )
+
+            path = save_report(report, base_dir=kb_path)
+
+            cost = sum(
+                estimate_cost(model, t["input"], t["output"])
+                for model, t in (
+                    (settings.llm.draft.model, draft_tokens),
+                    (settings.llm.audit.model, audit_tokens),
+                    (settings.llm.rewrite.model, rewrite_tokens),
+                )
+            )
+
+            results.append(PipelineResult(
+                project=project,
+                token_usage=token_usage,
+                file_path=str(path),
+                cost=cost,
+            ))
+
+        except Exception as exc:
+            log.error("Failed to process %s: %s", project.name, exc)
+            results.append(PipelineResult(project=project, error=str(exc)))
+
+    return results
