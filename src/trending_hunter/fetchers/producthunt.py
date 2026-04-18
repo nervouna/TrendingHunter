@@ -54,7 +54,8 @@ def _parse_ph_post(post: dict) -> Project | None:
         return None
 
     tagline = post.get("tagline", "")
-    url = post.get("url", "")
+    raw_url = post.get("url", "")
+    url = raw_url.split("?")[0] if raw_url else ""
     votes = post.get("votesCount", 0)
     created_at = post.get("createdAt", "")
 

@@ -137,6 +137,14 @@ def test_parse_ph_post_skips_empty_name():
     assert _parse_ph_post(post) is None
 
 
+def test_parse_ph_post_strips_query_params():
+    post = {**_PH_POST, "url": "https://www.producthunt.com/posts/awesometool?utm_source=foo&id=123"}
+    project = _parse_ph_post(post)
+    assert project is not None
+    assert project.url == "https://www.producthunt.com/posts/awesometool"
+    assert "?" not in project.url
+
+
 @patch("trending_hunter.fetchers.producthunt._ph_graphql")
 def test_fetch_producthunt_returns_projects(mock_gql):
     mock_gql.return_value = {
