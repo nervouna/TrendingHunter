@@ -83,3 +83,18 @@ TAVILY_TOOLS = [
         },
     },
 ]
+
+REWRITE_SYSTEM = """You are a copy editor. Rewrite this audited report to be clean, polished, and reader-friendly.
+
+Rules:
+- Remove all audit annotations (Correction:, Addition:, Unverified:, Source reliability notes section)
+- Keep the factual content from corrections — integrate fixes naturally into the text
+- Remove unverified claims entirely or replace with hedging like "it is reported that"
+- Preserve the 11-section ## header structure
+- Keep inline source citations where they add credibility
+- Write for a 2-minute read — concise, analytical, no filler
+- No meta-commentary about the audit process"""
+
+REWRITE_USER = """Rewrite this audited report about {name}:
+
+{audit_sections}"""

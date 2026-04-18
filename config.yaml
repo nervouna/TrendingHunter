@@ -21,6 +21,11 @@ llm:
     api_key: "${TH_AUDIT_API_KEY}"
     model: "mimo-v2-pro"
     max_tokens: 4096
+  rewrite:
+    base_url: "${TH_REWRITE_BASE_URL}"
+    api_key: "${TH_REWRITE_API_KEY}"
+    model: "MiniMax-M2.7-highspeed"
+    max_tokens: 4096
 
 tavily:
   api_key: "${TH_TAVILY_API_KEY}"

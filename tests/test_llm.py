@@ -3,6 +3,7 @@ from unittest.mock import MagicMock, patch
 from trending_hunter.llm.client import LLMClient
 from trending_hunter.llm.draft import generate_draft
 from trending_hunter.llm.audit import audit_report
+from trending_hunter.llm.rewrite import rewrite_report
 from trending_hunter.models import Project, Source
 
 
@@ -91,3 +92,15 @@ def test_llm_client_calls_anthropic():
     assert tokens["input"] == 50
     assert tokens["output"] == 100
     mock_cls.return_value.messages.create.assert_called_once()
+
+
+def test_rewrite_report_returns_sections():
+    client = MagicMock(spec=LLMClient)
+    client.call.return_value = (_mock_sections(), {"input": 80, "output": 120})
+
+    sections, tokens = rewrite_report(_mock_sections(), _sample_project(), client)
+
+    assert set(sections.keys()) == set(SECTION_NAMES)
+    assert tokens["input"] == 80
+    assert tokens["output"] == 120
+    client.call.assert_called_once()
