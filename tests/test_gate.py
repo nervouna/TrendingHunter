@@ -1,8 +1,5 @@
-from datetime import datetime, timedelta
-
 from trending_hunter.models import Project, Source
 from trending_hunter.gate import filter_projects
-from trending_hunter.collector import enrich_projects
 
 
 def _make_project(name: str, velocity: float, age_days: int | None = None, **kwargs: object) -> Project:
@@ -57,13 +54,6 @@ def test_filter_keeps_unknown_age():
 def test_filter_empty():
     result = filter_projects([], DEFAULT_CONFIG)
     assert result == []
-
-
-def test_enrich_adds_readme(enrich_stub):
-    projects = [_make_project("a/b", 50.0)]
-    enriched = enrich_projects(projects, tavily_key="fake")
-    assert len(enriched) == 1
-    assert enriched[0].readme_excerpt == "# Test Repo\nThis is a test README."
 
 
 def test_filter_by_first_time_contributors():

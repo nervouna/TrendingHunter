@@ -42,7 +42,9 @@ def test_generate_draft_returns_sections():
     client = MagicMock(spec=LLMClient)
     client.call.return_value = (_mock_sections(), {"input": 100, "output": 200})
 
-    sections, tokens = generate_draft(_sample_project(), client)
+    with patch("trending_hunter.llm.draft.tavily_extract", return_value="content"), \
+         patch("trending_hunter.llm.draft.tavily_search", return_value="search results"):
+        sections, tokens = generate_draft(_sample_project(), client, tavily_key="fake")
 
     assert set(sections.keys()) == set(SECTION_NAMES)
     assert tokens["input"] == 100
@@ -50,16 +52,26 @@ def test_generate_draft_returns_sections():
     client.call.assert_called_once()
 
 
+def test_generate_draft_without_tavily():
+    client = MagicMock(spec=LLMClient)
+    client.call.return_value = (_mock_sections(), {"input": 100, "output": 200})
+
+    sections, tokens = generate_draft(_sample_project(), client)
+
+    assert set(sections.keys()) == set(SECTION_NAMES)
+    client.call.assert_called_once()
+
+
 def test_audit_report_returns_sections():
     client = MagicMock(spec=LLMClient)
     draft = _mock_sections()
-    client.call.return_value = (_mock_sections(), {"input": 150, "output": 250})
+    client.call_with_tools.return_value = (_mock_sections(), {"input": 150, "output": 250})
 
-    sections, tokens = audit_report(draft, _sample_project(), client)
+    sections, tokens = audit_report(draft, _sample_project(), client, tavily_key="fake")
 
     assert set(sections.keys()) == set(SECTION_NAMES)
     assert tokens["input"] == 150
-    client.call.assert_called_once()
+    client.call_with_tools.assert_called_once()
 
 
 def test_llm_client_calls_anthropic():
@@ -67,6 +79,7 @@ def test_llm_client_calls_anthropic():
     mock_response.content = [MagicMock(text="## TL;DR\nTest.")]
     mock_response.usage.input_tokens = 50
     mock_response.usage.output_tokens = 100
+    mock_response.stop_reason = "end_turn"
 
     with patch("trending_hunter.llm.client.anthropic.Anthropic") as mock_cls:
         mock_cls.return_value.messages.create.return_value = mock_response

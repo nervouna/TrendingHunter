@@ -2,25 +2,27 @@ from __future__ import annotations
 
 import click
 
-from trending_hunter.collector import enrich_projects
 from trending_hunter.config import load_config
 from trending_hunter.fetchers.github import fetch_trending
 from trending_hunter.gate import filter_projects
 from trending_hunter.llm.audit import audit_report
 from trending_hunter.llm.client import LLMClient
 from trending_hunter.llm.draft import generate_draft
+from trending_hunter.llm.tools import _clear_cache
+from trending_hunter.log import get_logger, setup_logging
 from trending_hunter.models import Report
 from trending_hunter.search import search_reports
 from trending_hunter.writer import save_report
-from trending_hunter.cost import estimate_cost, format_cost_report
+from trending_hunter.cost import estimate_cost
 
 
-def _make_llm_client(stage_cfg: dict, default_model: str) -> LLMClient:
+def _make_llm_client(stage_cfg: dict, default_model: str, timeout: float = 120.0) -> LLMClient:
     return LLMClient(
         api_key=stage_cfg.get("api_key", ""),
         model=stage_cfg.get("model", default_model),
         max_tokens=stage_cfg.get("max_tokens", 4096),
         base_url=stage_cfg.get("base_url") or None,
+        timeout=timeout,
     )
 
 
@@ -33,7 +35,10 @@ def cli() -> None:
 @click.option("--source", default="github", help="Data source to fetch from.")
 @click.option("--config", "config_path", default="config.yaml", help="Path to config file.")
 @click.option("--dry-run", is_flag=True, help="Skip LLM calls and report writing.")
-def run(source: str, config_path: str, dry_run: bool) -> None:
+@click.option("--limit", default=0, type=int, help="Max number of repos to analyze (0 = all).")
+def run(source: str, config_path: str, dry_run: bool, limit: int) -> None:
+    setup_logging()
+    log = get_logger()
     cfg: dict[str, object] = load_config(config_path)
     proxy = cfg.get("proxy")
 
@@ -42,12 +47,17 @@ def run(source: str, config_path: str, dry_run: bool) -> None:
         language = gh.get("language", "")
         since = gh.get("since", "daily")
 
+        log.info("Fetching GitHub trending (language=%s, since=%s)", language, since)
         repos = fetch_trending(language=language, since=since, proxy=proxy)
         click.echo(f"Fetched {len(repos)} trending repos")
 
         gate_config = cfg.get("signal_gate", {})
         passed = filter_projects(repos, gate_config)
         click.echo(f"Passed signal gate: {len(passed)}/{len(repos)}")
+
+        if limit > 0:
+            passed = passed[:limit]
+            click.echo(f"Limited to {len(passed)} repo(s)")
 
         if dry_run:
             for r in passed:
@@ -56,24 +66,25 @@ def run(source: str, config_path: str, dry_run: bool) -> None:
             return
 
         tavily_key = cfg.get("tavily", {}).get("api_key") or None
-        enriched = enrich_projects(passed, tavily_key=tavily_key)
-
         llm_cfg = cfg.get("llm", {})
         draft_cfg = llm_cfg.get("draft", {})
         audit_cfg = llm_cfg.get("audit", {})
 
-        draft_client = _make_llm_client(draft_cfg, "claude-haiku-4-5-20251001")
-        audit_client = _make_llm_client(audit_cfg, "claude-sonnet-4-5-20250514")
+        draft_client = _make_llm_client(draft_cfg, "claude-haiku-4-5-20251001", timeout=120.0)
+        audit_client = _make_llm_client(audit_cfg, "claude-sonnet-4-5-20250514", timeout=300.0)
 
         kb_path = cfg.get("knowledge_base", {}).get("path", "./reports")
 
-        for project in enriched:
-            click.echo(f"\nAnalyzing {project.name}...")
+        _clear_cache()
 
-            draft, draft_tokens = generate_draft(project, draft_client)
+        for i, project in enumerate(passed):
+            click.echo(f"\nAnalyzing {project.name} ({i+1}/{len(passed)})...")
+            log.info("Processing project: %s", project.name)
+
+            draft, draft_tokens = generate_draft(project, draft_client, tavily_key=tavily_key)
             click.echo(f"  Draft: {draft_tokens['input']}+{draft_tokens['output']} tokens")
 
-            sections, audit_tokens = audit_report(draft, project, audit_client)
+            sections, audit_tokens = audit_report(draft, project, audit_client, tavily_key=tavily_key)
             click.echo(f"  Audit: {audit_tokens['input']}+{audit_tokens['output']} tokens")
 
             total_tokens = {
