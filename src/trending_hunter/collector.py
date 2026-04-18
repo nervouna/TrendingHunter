@@ -53,12 +53,22 @@ def enrich_projects(
         except httpx.HTTPError:
             readme = ""
 
+        try:
+            contributors = _github_get(
+                f"/repos/{parts[0]}/{parts[1]}/contributors?per_page=100",
+                token=token,
+            ).json()
+            first_time = sum(1 for c in contributors if c.get("contributions", 0) == 1)
+        except httpx.HTTPError:
+            first_time = None
+
         updated = p.model_copy(
             update={
                 "stars": meta.get("stargazers_count", p.stars),
                 "repo_age_days": age_days,
                 "description": meta.get("description") or p.description,
                 "readme_excerpt": readme,
+                "first_time_contributors": first_time,
             }
         )
         enriched.append(updated)

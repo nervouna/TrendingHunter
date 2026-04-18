@@ -16,12 +16,20 @@ def enrich_stub():
         "open_issues_count": 3,
         "language": "Python",
     }
+    contributors_json = [
+        {"login": "alice", "contributions": 50},
+        {"login": "bob", "contributions": 1},
+        {"login": "carol", "contributions": 1},
+    ]
 
     def _mock_github_get(path: str, **kwargs: object) -> MagicMock:
         resp = MagicMock()
         if "/readme" in path:
             resp.text = "# Test README"
             resp.json.side_effect = ValueError
+        elif "/contributors" in path:
+            resp.json.return_value = contributors_json
+            resp.text = ""
         else:
             resp.json.return_value = meta_json
             resp.text = ""

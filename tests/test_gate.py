@@ -65,3 +65,23 @@ def test_enrich_adds_repo_age(enrich_stub):
     assert len(enriched) == 1
     assert enriched[0].repo_age_days is not None
     assert enriched[0].repo_age_days > 0
+
+
+def test_enrich_adds_first_time_contributors(enrich_stub):
+    projects = [_make_project("a/b", 50.0)]
+    enriched = enrich_projects(projects, token="fake")
+    assert enriched[0].first_time_contributors == 2
+
+
+def test_filter_by_first_time_contributors():
+    projects = [
+        _make_project("a/b", 50.0, first_time_contributors=5),
+        _make_project("c/d", 50.0, first_time_contributors=0),
+        _make_project("e/f", 50.0, first_time_contributors=None),
+    ]
+    config = {**DEFAULT_CONFIG, "min_first_time_contributors": 1}
+    result = filter_projects(projects, config)
+    names = [r.name for r in result]
+    assert "a/b" in names
+    assert "c/d" not in names
+    assert "e/f" in names
