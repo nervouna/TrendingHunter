@@ -10,6 +10,8 @@ from trending_hunter.llm.audit import audit_report
 from trending_hunter.llm.client import LLMClient
 from trending_hunter.llm.draft import generate_draft
 from trending_hunter.models import Report
+from trending_hunter.writer import save_report
+from trending_hunter.cost import estimate_cost, format_cost_report
 
 
 def _make_llm_client(api_key: str, stage_cfg: dict, default_model: str) -> LLMClient:
@@ -63,6 +65,8 @@ def run(source: str, config_path: str, dry_run: bool) -> None:
         draft_client = _make_llm_client(api_key, draft_cfg, "claude-haiku-4-5-20251001")
         audit_client = _make_llm_client(api_key, audit_cfg, "claude-sonnet-4-5-20250514")
 
+        kb_path = cfg.get("knowledge_base", {}).get("path", "./reports")
+
         for project in enriched:
             click.echo(f"\nAnalyzing {project.name}...")
 
@@ -85,7 +89,13 @@ def run(source: str, config_path: str, dry_run: bool) -> None:
                 sections=sections,
                 file_path="",
             )
-            click.echo(f"  Generated {len(report.sections)} sections")
+
+            path = save_report(report, base_dir=kb_path)
+            click.echo(f"  Saved: {path}")
+
+            cost = estimate_cost(draft_cfg.get("model", ""), draft_tokens["input"], draft_tokens["output"])
+            cost += estimate_cost(audit_cfg.get("model", ""), audit_tokens["input"], audit_tokens["output"])
+            click.echo(f"  Cost: ${cost:.4f}")
 
     else:
         click.echo(f"Source '{source}' not yet implemented.")
