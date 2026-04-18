@@ -10,6 +10,7 @@ from trending_hunter.llm.audit import audit_report
 from trending_hunter.llm.client import LLMClient
 from trending_hunter.llm.draft import generate_draft
 from trending_hunter.models import Report
+from trending_hunter.search import search_reports
 from trending_hunter.writer import save_report
 from trending_hunter.cost import estimate_cost, format_cost_report
 
@@ -99,3 +100,23 @@ def run(source: str, config_path: str, dry_run: bool) -> None:
 
     else:
         click.echo(f"Source '{source}' not yet implemented.")
+
+
+@cli.command()
+@click.option("--keyword", default=None, help="Search keyword.")
+@click.option("--source", default=None, help="Filter by source.")
+@click.option("--config", "config_path", default="config.yaml", help="Path to config file.")
+def search(keyword: str | None, source: str | None, config_path: str) -> None:
+    cfg: dict[str, object] = load_config(config_path)
+    kb_path = cfg.get("knowledge_base", {}).get("path", "./reports")
+
+    results = search_reports(base_dir=str(kb_path), keyword=keyword, source=source)
+
+    if not results:
+        click.echo("No matching reports found.")
+        return
+
+    click.echo(f"Found {len(results)} report(s):")
+    for filename, excerpt in results:
+        click.echo(f"\n  {filename}")
+        click.echo(f"    {excerpt}...")
