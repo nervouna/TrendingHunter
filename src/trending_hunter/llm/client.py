@@ -140,8 +140,22 @@ class LLMClient:
             messages.append({"role": "assistant", "content": response.content})
             messages.append({"role": "user", "content": tool_results})
 
-        log.warning("LLM tool loop exhausted after %d rounds", max_rounds)
+        log.warning("LLM tool loop exhausted after %d rounds, forcing final response", max_rounds)
+        messages.append({"role": "user", "content": "Stop using tools. Write the final report now based on everything you've gathered."})
+
+        def _do_final() -> object:
+            return self._client.messages.create(
+                model=self._model,
+                max_tokens=self._max_tokens,
+                system=system,
+                messages=messages,
+            )
+
+        final_response = _retry_call(_do_final)
+        total_input += final_response.usage.input_tokens
+        total_output += final_response.usage.output_tokens
+
         text = "".join(
-            block.text for block in response.content if hasattr(block, "text")
+            block.text for block in final_response.content if hasattr(block, "text")
         )
         return _parse_sections(text), {"input": total_input, "output": total_output}
