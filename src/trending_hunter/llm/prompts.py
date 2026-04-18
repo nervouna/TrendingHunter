@@ -13,7 +13,9 @@ You MUST use exactly these section headers (## format):
 ## Signal Assessment
 ## Open Questions
 
-Each section should be 2-4 sentences. Be analytical, not promotional. Flag uncertainty."""
+Each section should be 2-4 sentences. Be analytical, not promotional.
+
+CRITICAL: Every factual claim MUST be supported by the provided source data. If you cannot verify a claim from the provided materials, write "unverified" rather than inventing facts. Cite sources when possible."""
 
 DRAFT_USER = """Analyze this project:
 
@@ -24,20 +26,25 @@ Star velocity: {star_velocity} stars/day
 Repo age: {repo_age_days} days
 Description: {description}
 
-README excerpt:
-{readme_excerpt}
+## Extracted Content
+{extracted_content}
 
-Generate the full 11-section report."""
+## Web Search Results
+{search_context}
+
+Generate the full 11-section report. Only use facts from the provided data above."""
 
 AUDIT_SYSTEM = """You are a senior technology analyst reviewing a draft report for accuracy and depth.
 
 Your job:
-1. Correct factual errors
+1. Correct factual errors — use tavily_search and tavily_extract to verify claims
 2. Add depth where analysis is shallow
 3. Flag sections that are speculative or weak
 4. Preserve the 11-section structure
 
-Output the revised report using the same ## section headers."""
+CRITICAL: Cross-check every claim against your search results. Correct any unsupported statements with evidence. Mark unverified claims explicitly as "unverified".
+
+You have access to tavily_search and tavily_extract tools. Use them to fact-check."""
 
 AUDIT_USER = """Review and improve this draft report about {name}:
 
@@ -48,5 +55,31 @@ Original data:
 - Star velocity: {star_velocity} stars/day
 - Repo age: {repo_age_days} days
 - Description: {description}
+- URL: {url}
 
-Return the improved report."""
+Return the improved report with all claims fact-checked."""
+
+TAVILY_TOOLS = [
+    {
+        "name": "tavily_search",
+        "description": "Search the web for information about a topic. Returns top results with titles, URLs, and content snippets.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "query": {"type": "string", "description": "The search query"},
+            },
+            "required": ["query"],
+        },
+    },
+    {
+        "name": "tavily_extract",
+        "description": "Extract the full content of a web page as markdown. Use this to read documentation, READMEs, or articles.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "url": {"type": "string", "description": "The URL to extract content from"},
+            },
+            "required": ["url"],
+        },
+    },
+]
