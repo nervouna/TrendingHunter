@@ -10,6 +10,10 @@ from trending_hunter.fetchers.hackernews import (
     fetch_hackernews,
     _parse_hn_item,
 )
+from trending_hunter.fetchers.producthunt import (
+    fetch_producthunt,
+    _parse_ph_post,
+)
 from trending_hunter.models import Source
 
 
@@ -102,6 +106,67 @@ def test_fetch_hackernews_respects_top_n(mock_fetch):
 # --- Product Hunt fetcher tests ---
 
 
-def test_producthunt_fetcher_raises():
-    with pytest.raises(NotImplementedError, match="Product Hunt"):
-        fetch_producthunt()
+_PH_POST = {
+    "name": "AwesomeTool",
+    "tagline": "Build better products faster",
+    "url": "https://www.producthunt.com/posts/awesometool",
+    "votesCount": 450,
+    "createdAt": "2026-04-19T08:00:00Z",
+    "commentsCount": 87,
+}
+
+
+def test_parse_ph_post_returns_project():
+    project = _parse_ph_post(_PH_POST)
+    assert project is not None
+    assert project.name == "AwesomeTool"
+    assert project.source == Source.PRODUCT_HUNT
+    assert project.url == "https://www.producthunt.com/posts/awesometool"
+    assert project.stars == 450
+    assert project.star_velocity > 0
+    assert "Build better products faster" in project.description
+
+
+def test_parse_ph_post_skips_missing_name():
+    post = {**_PH_POST, "name": None}
+    assert _parse_ph_post(post) is None
+
+
+def test_parse_ph_post_skips_empty_name():
+    post = {**_PH_POST, "name": ""}
+    assert _parse_ph_post(post) is None
+
+
+@patch("trending_hunter.fetchers.producthunt._ph_graphql")
+def test_fetch_producthunt_returns_projects(mock_gql):
+    mock_gql.return_value = {
+        "data": {
+            "posts": {
+                "edges": [
+                    {"node": _PH_POST},
+                    {"node": {**_PH_POST, "name": "SecondTool", "votesCount": 200}},
+                ]
+            }
+        }
+    }
+    result = fetch_producthunt(token="fake", top_n=2)
+    assert len(result) == 2
+    assert result[0].name == "AwesomeTool"
+    assert result[1].name == "SecondTool"
+
+
+@patch("trending_hunter.fetchers.producthunt._ph_graphql")
+def test_fetch_producthunt_respects_top_n(mock_gql):
+    mock_gql.return_value = {
+        "data": {
+            "posts": {
+                "edges": [
+                    {"node": _PH_POST},
+                    {"node": {**_PH_POST, "name": "SecondTool"}},
+                    {"node": {**_PH_POST, "name": "ThirdTool"}},
+                ]
+            }
+        }
+    }
+    result = fetch_producthunt(token="fake", top_n=1)
+    assert len(result) == 1

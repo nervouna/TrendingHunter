@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 
 import httpx
 
+from trending_hunter.fetchers import daily_velocity
 from trending_hunter.models import Project, Source
 
 _HN_API = "https://hacker-news.firebaseio.com/v0"
@@ -37,9 +38,7 @@ def _parse_hn_item(item: dict) -> Project | None:
     ts = item.get("time", 0)
 
     post_time = datetime.fromtimestamp(ts, tz=timezone.utc)
-    now = datetime.now(timezone.utc)
-    hours = max((now - post_time).total_seconds() / 3600, 1)
-    velocity = score / hours * 24
+    velocity = daily_velocity(score, post_time)
 
     text = item.get("text", "")
     description = title

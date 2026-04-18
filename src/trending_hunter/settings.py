@@ -13,6 +13,7 @@ class GitHubSourceConfig(BaseModel):
 class ProductHuntSourceConfig(BaseModel):
     enabled: bool = True
     token: str = ""
+    top_n: int = 20
 
 
 class HackerNewsSourceConfig(BaseModel):
