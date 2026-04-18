@@ -1,5 +1,13 @@
+from datetime import date
+
 from trending_hunter.models import Project, Report, Source, TokenUsage
-from trending_hunter.writer import render_report, save_report, sections_to_text
+from trending_hunter.writer import (
+    build_expected_filename,
+    render_report,
+    report_exists,
+    save_report,
+    sections_to_text,
+)
 from trending_hunter.cost import estimate_cost, format_cost_report
 from trending_hunter.settings import ModelPricing
 
@@ -141,3 +149,44 @@ def test_sections_to_text():
     assert "## TL;DR" in text
     assert "## What & Why" in text
     assert "Summary." in text
+
+
+def test_build_expected_filename():
+    p = Project(
+        name="owner/repo",
+        source=Source.GITHUB,
+        url="https://github.com/owner/repo",
+        stars=100,
+        star_velocity=10.0,
+        description="test",
+    )
+    result = build_expected_filename(p, "2026-04-19")
+    assert result == "2026-04-19-github-owner-repo.md"
+
+
+def test_report_exists_true(tmp_path):
+    p = Project(
+        name="owner/repo",
+        source=Source.GITHUB,
+        url="https://github.com/owner/repo",
+        stars=100,
+        star_velocity=10.0,
+        description="test",
+    )
+    today = date(2026, 4, 19)
+    filename = build_expected_filename(p, today.isoformat())
+    (tmp_path / filename).write_text("placeholder")
+    assert report_exists(p, str(tmp_path), today) is True
+
+
+def test_report_exists_false(tmp_path):
+    p = Project(
+        name="owner/repo",
+        source=Source.GITHUB,
+        url="https://github.com/owner/repo",
+        stars=100,
+        star_velocity=10.0,
+        description="test",
+    )
+    today = date(2026, 4, 19)
+    assert report_exists(p, str(tmp_path), today) is False
