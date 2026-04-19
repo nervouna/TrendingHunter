@@ -59,7 +59,7 @@ def build_expected_filename(project: Project, date_str: str) -> str:
 def get_report_path(project: Project, base_dir: str, date_obj: date | None = None) -> Path:
     d = date_obj or datetime.now().date()
     filename = build_expected_filename(project, d.isoformat())
-    return Path(base_dir) / filename
+    return Path(base_dir).expanduser() / filename
 
 
 def report_exists(project: Project, base_dir: str, date_obj: date | None = None) -> bool:
@@ -72,7 +72,7 @@ def _build_filename(report: Report) -> str:
 
 
 def save_report(report: Report, base_dir: str = "./reports") -> Path:
-    dir_path = Path(base_dir)
+    dir_path = Path(base_dir).expanduser()
     dir_path.mkdir(parents=True, exist_ok=True)
 
     filename = _build_filename(report)
