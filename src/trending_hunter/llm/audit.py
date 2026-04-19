@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import datetime
+
 from trending_hunter.llm.client import LLMClient
 from trending_hunter.llm.prompts import AUDIT_SYSTEM, AUDIT_USER, TAVILY_TOOLS, get_language_modifier
 from trending_hunter.llm.tools import tavily_extract, tavily_search
@@ -32,6 +34,7 @@ def audit_report(
         repo_age_days=project.repo_age_days or "unknown",
         description=project.description,
         url=project.url,
+        current_date=datetime.now().isoformat(),
     )
 
     system = AUDIT_SYSTEM + get_language_modifier(language)

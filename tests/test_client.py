@@ -5,16 +5,10 @@ from trending_hunter.llm.prompts import AUDIT_SYSTEM, DRAFT_SYSTEM, REWRITE_SYST
 
 CANONICAL_HEADERS = [
     "TL;DR",
-    "What & Why",
-    "Why Now",
-    "Technology Wave",
-    "Supply & Demand",
-    "Product Analysis",
-    "Creativity & Differentiation",
-    "Competitive Landscape",
-    "Community Signals",
-    "Signal Assessment",
-    "Open Questions",
+    "Product & Design",
+    "Market & Business",
+    "Technology & Architecture",
+    "Competitive Edge & Verdict",
 ]
 
 

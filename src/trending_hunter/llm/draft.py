@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import datetime
+
 from trending_hunter.llm.client import LLMClient
 from trending_hunter.llm.prompts import DRAFT_SYSTEM, DRAFT_USER, get_language_modifier
 from trending_hunter.llm.tools import tavily_extract, tavily_search
@@ -28,6 +30,7 @@ def generate_draft(
         description=project.description,
         extracted_content=extracted or project.readme_excerpt or "N/A",
         search_context=search_ctx or "No search results available.",
+        current_date=datetime.now().isoformat(),
     )
     system = DRAFT_SYSTEM + get_language_modifier(language)
     return client.call(system, user)
