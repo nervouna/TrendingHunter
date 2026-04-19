@@ -3,6 +3,8 @@ from __future__ import annotations
 from datetime import date, datetime
 from pathlib import Path
 
+import yaml
+
 from trending_hunter.models import Project, Report, Source
 
 _SOURCE_LABELS: dict[Source, tuple[str, str]] = {
@@ -21,8 +23,6 @@ def sections_to_text(sections: dict[str, str]) -> str:
 
 def render_report(report: Report) -> str:
     lines: list[str] = []
-    lines.append(f"# {report.project.name}")
-    lines.append("")
 
     count_label, velocity_label = _SOURCE_LABELS.get(
         report.project.source, ("Stars", "stars/day")
@@ -71,6 +71,19 @@ def _build_filename(report: Report) -> str:
     return build_expected_filename(report.project, date_str)
 
 
+def _build_frontmatter(report: Report) -> str:
+    fm = {
+        "status": "inbox",
+        "source_type": "trending",
+        "source": report.project.url,
+        "created": report.generated_at.isoformat(),
+        "title": report.project.name,
+        "trending_source": report.project.source.value,
+        "tags": ["trending", report.project.source.value],
+    }
+    return "---\n" + yaml.dump(fm, allow_unicode=True, default_flow_style=False, sort_keys=False) + "---\n"
+
+
 def save_report(report: Report, base_dir: str = "./reports") -> Path:
     dir_path = Path(base_dir).expanduser()
     dir_path.mkdir(parents=True, exist_ok=True)
@@ -81,6 +94,7 @@ def save_report(report: Report, base_dir: str = "./reports") -> Path:
     if path.exists():
         return path
 
-    content = render_report(report)
-    path.write_text(content, encoding="utf-8")
+    frontmatter = _build_frontmatter(report)
+    body = render_report(report)
+    path.write_text(frontmatter + body, encoding="utf-8")
     return path

@@ -190,3 +190,28 @@ def test_report_exists_false(tmp_path):
     )
     today = date(2026, 4, 19)
     assert report_exists(p, str(tmp_path), today) is False
+
+
+import yaml
+
+
+def test_save_report_has_frontmatter(tmp_path):
+    report = _sample_report()
+    path = save_report(report, str(tmp_path))
+    content = path.read_text()
+    # Must start with YAML frontmatter delimiters
+    assert content.startswith("---\n")
+    # Extract frontmatter block
+    parts = content.split("---\n", 2)
+    assert len(parts) >= 3, "Expected frontmatter delimiters"
+    fm = yaml.safe_load(parts[1])
+    assert fm["status"] == "inbox"
+    assert fm["source_type"] == "trending"
+    assert fm["source"] == "https://github.com/owner/repo"
+    assert fm["title"] == "owner/repo"
+    assert fm["trending_source"] == "github"
+    assert "trending" in fm["tags"]
+    assert "created" in fm
+    # Body should not start with H1 (render_report skips it)
+    body = parts[2].strip()
+    assert not body.startswith("# owner/repo")
