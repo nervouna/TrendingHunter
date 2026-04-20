@@ -5,7 +5,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Build & Run
 
 ```bash
-pip install -e ".[dev]"      # install with dev deps
+python3 -m venv .venv               # create venv
+source .venv/bin/activate           # activate venv
+pip install -e ".[dev]"             # install with dev deps
 th run --source github -l chinese   # single pipeline run
 th schedule --interval 3600         # periodic runs
 python -m pytest tests/ -v          # run all tests

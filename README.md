@@ -7,7 +7,9 @@ Fetches from GitHub Trending, Product Hunt, and Hacker News, filters by signal (
 ## Quick Start
 
 ```bash
-# Install
+# Create venv and install
+python3 -m venv .venv
+source .venv/bin/activate
 pip install -e ".[dev]"
 
 # Configure
