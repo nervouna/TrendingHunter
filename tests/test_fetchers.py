@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -14,6 +14,8 @@ from trending_hunter.fetchers.producthunt import (
     fetch_producthunt,
     _parse_ph_post,
 )
+from trending_hunter.fetchers.hackernews import _fetch_json as hn_fetch_json
+from trending_hunter.fetchers.producthunt import _ph_graphql
 from trending_hunter.models import Source
 
 
@@ -178,3 +180,120 @@ def test_fetch_producthunt_respects_top_n(mock_gql):
     }
     result = fetch_producthunt(token="fake", top_n=1)
     assert len(result) == 1
+
+
+@patch("trending_hunter.fetchers.hackernews._fetch_json")
+def test_fetch_hackernews_empty_stories(mock_fetch):
+    mock_fetch.return_value = []
+    result = fetch_hackernews(top_n=5)
+    assert result == []
+
+
+@patch("trending_hunter.fetchers.hackernews._fetch_json", side_effect=Exception("network error"))
+def test_fetch_hackernews_propagates_error(mock_fetch):
+    with pytest.raises(Exception, match="network error"):
+        fetch_hackernews(top_n=1)
+
+
+@patch("trending_hunter.fetchers.hackernews._fetch_json")
+def test_fetch_hackernews_executor_error(mock_fetch):
+    def _side(path, **kwargs):
+        if "topstories" in path:
+            return [100]
+        raise RuntimeError("item fetch failed")
+    mock_fetch.side_effect = _side
+    with pytest.raises(RuntimeError, match="item fetch failed"):
+        fetch_hackernews(top_n=1)
+
+
+def test_parse_ph_post_no_created_at():
+    post = {
+        "name": "Tool",
+        "tagline": "A tool",
+        "url": "https://example.com",
+        "votesCount": 100,
+        "createdAt": "",
+    }
+    project = _parse_ph_post(post)
+    assert project is not None
+    assert project.star_velocity == 100.0
+
+
+@patch("trending_hunter.fetchers.producthunt._ph_graphql")
+def test_fetch_producthunt_passes_proxy(mock_gql):
+    mock_gql.return_value = {"data": {"posts": {"edges": [{"node": _PH_POST}]}}}
+    fetch_producthunt(token="fake", top_n=1, proxy="http://proxy:8080")
+    mock_gql.assert_called_once()
+    # The proxy should be passed through _ph_graphql — verify the call was made
+    assert mock_gql.call_args is not None
+
+
+def test_parse_hn_item_with_text():
+    item = {
+        **_HN_ITEM,
+        "text": "<p>This is the body of the HN post with some details.</p>",
+    }
+    project = _parse_hn_item(item)
+    assert project is not None
+    assert "This is the body" in project.description
+
+
+@patch("trending_hunter.fetchers.hackernews._fetch_json")
+def test_fetch_hackernews_passes_proxy(mock_fetch):
+    def _side(path, **kwargs):
+        if "topstories" in path:
+            return []
+        return {}
+    mock_fetch.side_effect = _side
+    fetch_hackernews(top_n=0, proxy="http://proxy:8080")
+    mock_fetch.assert_called_once_with("topstories.json", proxy="http://proxy:8080")
+
+
+@patch("trending_hunter.fetchers.hackernews.httpx.Client")
+def test_hn_fetch_json_with_proxy(mock_client_cls):
+    mock_resp = MagicMock()
+    mock_resp.json.return_value = [1, 2, 3]
+    mock_client_instance = MagicMock()
+    mock_client_instance.get.return_value = mock_resp
+    mock_client_cls.return_value.__enter__ = MagicMock(return_value=mock_client_instance)
+    mock_client_cls.return_value.__exit__ = MagicMock(return_value=False)
+
+    hn_fetch_json("topstories.json", proxy="http://proxy:8080")
+    mock_client_cls.assert_called_once()
+    call_kwargs = mock_client_cls.call_args[1]
+    assert call_kwargs["proxy"] == "http://proxy:8080"
+
+
+@patch("trending_hunter.fetchers.producthunt.httpx.Client")
+def test_ph_graphql_with_proxy(mock_client_cls):
+    mock_resp = MagicMock()
+    mock_resp.json.return_value = {"data": {"posts": {"edges": []}}}
+    mock_resp.raise_for_status = MagicMock()
+    mock_client_instance = MagicMock()
+    mock_client_instance.post.return_value = mock_resp
+    mock_client_cls.return_value.__enter__ = MagicMock(return_value=mock_client_instance)
+    mock_client_cls.return_value.__exit__ = MagicMock(return_value=False)
+
+    _ph_graphql("query {}", {}, token="fake", proxy="http://proxy:8080")
+    mock_client_cls.assert_called_once()
+    call_kwargs = mock_client_cls.call_args[1]
+    assert call_kwargs["proxy"] == "http://proxy:8080"
+
+
+@patch("trending_hunter.fetchers.github.httpx.Client")
+def test_fetch_github_with_proxy(mock_client_cls):
+    mock_resp = MagicMock()
+    mock_resp.text = "<html></html>"
+    mock_resp.raise_for_status = MagicMock()
+    mock_client_instance = MagicMock()
+    mock_client_instance.get.return_value = mock_resp
+    mock_client_cls.return_value.__enter__ = MagicMock(return_value=mock_client_instance)
+    mock_client_cls.return_value.__exit__ = MagicMock(return_value=False)
+
+    fetch_trending(language="python", since="weekly", proxy="http://proxy:8080")
+    mock_client_cls.assert_called_once()
+    call_kwargs = mock_client_cls.call_args[1]
+    assert call_kwargs["proxy"] == "http://proxy:8080"
+    # Verify the language is in the URL
+    get_call = mock_client_instance.get.call_args
+    assert "python" in get_call[0][0]

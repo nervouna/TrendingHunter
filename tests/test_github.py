@@ -79,3 +79,18 @@ def test_parse_language():
     # language is not stored in Project model — it's metadata only
     # verify the parser doesn't crash on it
     assert repos[0].name == "owner-a/repo-a"
+
+
+def test_parse_skips_article_without_repo_link():
+    html = """<html><body>
+<article>
+  <p>No repo link here</p>
+</article>
+<article>
+  <h2><a href="/owner/repo">owner / repo</a></h2>
+  <p>Desc.</p>
+</article>
+</body></html>"""
+    repos = parse_trending_html(html)
+    assert len(repos) == 1
+    assert repos[0].name == "owner/repo"
