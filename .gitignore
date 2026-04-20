@@ -9,3 +9,4 @@ build/
 .env.bak
 reports/
 .claude/
+config.yaml
