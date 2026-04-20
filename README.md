@@ -10,9 +10,10 @@ Fetches from GitHub Trending, Product Hunt, and Hacker News, filters by signal (
 # Install
 pip install -e ".[dev]"
 
-# Configure environment variables
+# Configure
+cp config.example.yaml config.yaml
 cp .env.example .env
-# Edit .env with your API keys
+# Edit config.yaml (models, thresholds) and .env (API keys)
 
 # Run a single pipeline
 th run --source github --limit 3
@@ -60,14 +61,24 @@ Reports are idempotent: existing reports for the same project+date are skipped.
 
 ## Configuration
 
-`config.yaml` controls sources, signal gate thresholds, LLM endpoints, and pricing. Environment variables are referenced with `${VAR_NAME}` syntax.
+`config.yaml` controls sources, signal gate thresholds, LLM endpoints, and pricing. Start from `config.example.yaml`:
+
+```bash
+cp config.example.yaml config.yaml
+```
+
+Secrets are stored in `.env` (gitignored) and referenced via `${VAR_NAME}` syntax in `config.yaml`. The config loader also supports `TH_*` env var overrides — any config key can be overridden without editing YAML (e.g. `TH_LLM_DRAFT_MODEL=gpt-4o`).
 
 Required env vars:
 
 | Variable | Purpose |
 |----------|---------|
-| `TH_DRAFT_API_KEY` | LLM API key for draft stage |
-| `TH_AUDIT_API_KEY` | LLM API key for audit stage |
+| `TH_DRAFT_BASE_URL` | Draft LLM API base URL |
+| `TH_DRAFT_API_KEY` | Draft LLM API key |
+| `TH_AUDIT_BASE_URL` | Audit LLM API base URL |
+| `TH_AUDIT_API_KEY` | Audit LLM API key |
+| `TH_REWRITE_BASE_URL` | Rewrite LLM API base URL |
+| `TH_REWRITE_API_KEY` | Rewrite LLM API key |
 | `TH_TAVILY_API_KEY` | Tavily web search API key |
 | `TH_PRODUCTHUNT_TOKEN` | Product Hunt API token |
 

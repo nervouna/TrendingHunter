@@ -39,7 +39,12 @@ Pipeline: `fetcher → gate → LLM (draft → audit → rewrite) → writer`
 
 ## Config & Secrets
 
-- Runtime config: `config.yaml` (Pydantic-validated via `settings.py`)
-- Secrets via env vars: `TH_DRAFT_API_KEY`, `TH_AUDIT_API_KEY`, `TH_TAVILY_API_KEY`, `TH_PRODUCTHUNT_TOKEN`
+- Runtime config: `config.yaml` (gitignored, Pydantic-validated via `settings.py`)
+- Example config: `config.example.yaml` — copy and customize
+- Secrets via env vars (`.env` file supported, gitignored):
+  - `TH_DRAFT_BASE_URL`, `TH_DRAFT_API_KEY`
+  - `TH_AUDIT_BASE_URL`, `TH_AUDIT_API_KEY`
+  - `TH_REWRITE_BASE_URL`, `TH_REWRITE_API_KEY`
+  - `TH_TAVILY_API_KEY`, `TH_PRODUCTHUNT_TOKEN`
 - Env var resolution: `${VAR_NAME}` syntax in `config.yaml` is expanded by `config.py`
-- `.env` file supported (gitignored)
+- Override any config key via `TH_` prefix env vars (e.g. `TH_LLM_DRAFT_MODEL=...`)
