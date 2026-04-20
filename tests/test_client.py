@@ -34,3 +34,9 @@ def test_parse_sections_fallback_for_unknown():
 Content."""
     sections = _parse_sections(text)
     assert "Unknown Section" in sections
+
+
+def test_parse_sections_no_headers():
+    text = "Just plain text with no section headers."
+    sections = _parse_sections(text)
+    assert sections == {"TL;DR": "Just plain text with no section headers."}
