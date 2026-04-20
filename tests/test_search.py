@@ -42,3 +42,8 @@ def test_search_no_results(tmp_path):
 def test_search_empty_dir(tmp_path):
     results = search_reports(str(tmp_path), keyword="anything")
     assert results == []
+
+
+def test_search_nonexistent_dir():
+    results = search_reports("/nonexistent/path/that/does/not/exist", keyword="anything")
+    assert results == []
