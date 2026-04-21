@@ -10,3 +10,4 @@ build/
 reports/
 .claude/
 config.yaml
+cron.log
