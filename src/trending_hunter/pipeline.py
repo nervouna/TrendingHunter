@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from trending_hunter.cost import estimate_cost
+from trending_hunter.dedup import SeenUrls
 from trending_hunter.llm.audit import audit_report
 from trending_hunter.llm.client import LLMClient
 from trending_hunter.llm.draft import generate_draft
@@ -25,7 +26,7 @@ class PipelineResult:
     error: str | None = None
 
 
-def run_pipeline(projects: list[Project], settings: Settings, language: str = "") -> list[PipelineResult]:
+def run_pipeline(projects: list[Project], settings: Settings, language: str = "", seen: SeenUrls | None = None) -> list[PipelineResult]:
     tavily_key = settings.tavily.api_key or None
     draft_client = LLMClient(
         api_key=settings.llm.draft.api_key,
@@ -54,10 +55,10 @@ def run_pipeline(projects: list[Project], settings: Settings, language: str = ""
     results: list[PipelineResult] = []
 
     for project in projects:
-        existing = get_report_path(project, kb_path)
-        if existing.exists():
-            log.info("Skipping %s — report already exists at %s", project.name, existing)
-            results.append(PipelineResult(project=project, file_path=str(existing), status="skipped"))
+        dedup_url = project.normalized_url or project.url
+        if seen and seen.is_seen(dedup_url):
+            log.info("Skipping %s — already processed (url=%s)", project.name, dedup_url)
+            results.append(PipelineResult(project=project, status="skipped"))
             continue
 
         try:
@@ -99,8 +100,14 @@ def run_pipeline(projects: list[Project], settings: Settings, language: str = ""
                 cost=cost,
             ))
 
+            if seen:
+                seen.mark_seen(dedup_url)
+
         except Exception as exc:
             log.error("Failed to process %s: %s", project.name, exc)
             results.append(PipelineResult(project=project, error=str(exc), status="error"))
+
+    if seen:
+        seen.save()
 
     return results

@@ -3,7 +3,9 @@ from __future__ import annotations
 from datetime import datetime
 from enum import Enum
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
+
+from trending_hunter.utils import normalize_url
 
 
 class Source(str, Enum):
@@ -16,7 +18,14 @@ class Project(BaseModel):
     name: str
     source: Source
     url: str
+    normalized_url: str = ""
     fetched_at: datetime = Field(default_factory=datetime.now)
+
+    @model_validator(mode="after")
+    def _set_normalized_url(self) -> Project:
+        if not self.normalized_url:
+            self.normalized_url = normalize_url(self.url)
+        return self
     stars: int
     star_velocity: float
     repo_age_days: int | None = None

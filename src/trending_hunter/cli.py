@@ -6,6 +6,7 @@ from collections.abc import Callable
 import click
 
 from trending_hunter.config import load_config
+from trending_hunter.dedup import SeenUrls
 from trending_hunter.fetchers.github import fetch_trending
 from trending_hunter.fetchers.producthunt import fetch_producthunt
 from trending_hunter.fetchers.hackernews import fetch_hackernews
@@ -76,7 +77,9 @@ def run_cycle(source: str, config_path: str, limit: int, dry_run: bool, language
         return
 
     _clear_cache()
-    results = run_pipeline(passed, settings, language=language)
+    seen = SeenUrls(f"{settings.knowledge_base.path}/.seen_urls.json")
+    seen.load()
+    results = run_pipeline(passed, settings, language=language, seen=seen)
 
     for i, r in enumerate(results):
         click.echo(f"\n[{i+1}/{len(results)}] {r.project.name}")
