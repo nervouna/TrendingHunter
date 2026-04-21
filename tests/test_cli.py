@@ -318,3 +318,114 @@ def test_run_cycle_product_hunt(mock_load, mock_filter, mock_pipeline, capsys):
         assert mock_fetch.call_args[1]["top_n"] == 10
     finally:
         cli_mod._FETCHERS = original_fetchers
+
+
+@patch("trending_hunter.cli.load_config")
+def test_doctor_all_pass(mock_load):
+    settings = MagicMock()
+    settings.knowledge_base.path = "/tmp/kb"
+    settings.llm.draft.base_url = "http://localhost"
+    settings.llm.draft.api_key = "key1"
+    settings.llm.draft.model = "model-a"
+    settings.llm.audit.base_url = "http://localhost"
+    settings.llm.audit.api_key = "key2"
+    settings.llm.audit.model = "model-a"
+    settings.llm.rewrite.base_url = "http://localhost"
+    settings.llm.rewrite.api_key = "key3"
+    settings.llm.rewrite.model = "model-a"
+    settings.model_pricing = {}
+    settings.tavily.api_key = "tavily-key"
+    settings.sources.product_hunt.token = "ph-token"
+    mock_load.return_value = settings
+
+    runner = CliRunner()
+    result = runner.invoke(cli, ["doctor"])
+    assert result.exit_code == 0
+    assert "✔ LLM Config" in result.output
+    assert "✔ Tavily API Key" in result.output
+    assert "✔ Product API Token" in result.output
+    assert "✖" not in result.output
+
+
+@patch("trending_hunter.cli.load_config")
+def test_doctor_llm_missing_fields(mock_load):
+    settings = MagicMock()
+    settings.knowledge_base.path = "/tmp/kb"
+    settings.llm.draft.base_url = "http://localhost"
+    settings.llm.draft.api_key = "key1"
+    settings.llm.draft.model = "model-a"
+    settings.llm.audit.base_url = ""
+    settings.llm.audit.api_key = ""
+    settings.llm.audit.model = ""
+    settings.llm.rewrite.base_url = "http://localhost"
+    settings.llm.rewrite.api_key = "key3"
+    settings.llm.rewrite.model = "model-a"
+    settings.model_pricing = {}
+    settings.tavily.api_key = "tavily-key"
+    settings.sources.product_hunt.token = "ph-token"
+    mock_load.return_value = settings
+
+    runner = CliRunner()
+    result = runner.invoke(cli, ["doctor"])
+    assert result.exit_code == 0
+    assert "✖ LLM Config" in result.output
+    assert "Audit provider" in result.output
+    assert "missing" in result.output
+
+
+@patch("trending_hunter.cli.load_config")
+def test_doctor_product_token_missing(mock_load):
+    settings = MagicMock()
+    settings.knowledge_base.path = "/tmp/kb"
+    settings.llm.draft.base_url = "http://localhost"
+    settings.llm.draft.api_key = "key1"
+    settings.llm.draft.model = "model-a"
+    settings.llm.audit.base_url = "http://localhost"
+    settings.llm.audit.api_key = "key2"
+    settings.llm.audit.model = "model-a"
+    settings.llm.rewrite.base_url = "http://localhost"
+    settings.llm.rewrite.api_key = "key3"
+    settings.llm.rewrite.model = "model-a"
+    settings.model_pricing = {}
+    settings.tavily.api_key = "tavily-key"
+    settings.sources.product_hunt.token = ""
+    mock_load.return_value = settings
+
+    runner = CliRunner()
+    result = runner.invoke(cli, ["doctor"])
+    assert result.exit_code == 0
+    assert "✖ Product API Token" in result.output
+
+
+@patch("trending_hunter.cli.load_config")
+def test_doctor_config_load_fail(mock_load):
+    mock_load.side_effect = FileNotFoundError("config.yaml not found")
+    runner = CliRunner()
+    result = runner.invoke(cli, ["doctor"])
+    assert result.exit_code == 0
+    assert "Failed to load config" in result.output
+
+
+@patch("trending_hunter.cli.load_config")
+def test_doctor_shows_pricing(mock_load):
+    from trending_hunter.settings import ModelPricing
+
+    settings = MagicMock()
+    settings.knowledge_base.path = "/tmp/kb"
+    settings.llm.draft.base_url = "http://localhost"
+    settings.llm.draft.api_key = "key1"
+    settings.llm.draft.model = "gpt-4"
+    settings.llm.audit.base_url = "http://localhost"
+    settings.llm.audit.api_key = "key2"
+    settings.llm.audit.model = "gpt-4"
+    settings.llm.rewrite.base_url = "http://localhost"
+    settings.llm.rewrite.api_key = "key3"
+    settings.llm.rewrite.model = "gpt-4"
+    settings.model_pricing = {"draft": ModelPricing(input_per_million=10.0, output_per_million=30.0)}
+    settings.tavily.api_key = "tavily-key"
+    settings.sources.product_hunt.token = "ph-token"
+    mock_load.return_value = settings
+
+    runner = CliRunner()
+    result = runner.invoke(cli, ["doctor"])
+    assert "$10.0/30.0 per 1M" in result.output
