@@ -7,6 +7,8 @@ from pydantic import BaseModel, Field, model_validator
 
 from trending_hunter.utils import normalize_url
 
+LLM_STAGES = ("draft", "audit", "rewrite")
+
 
 class Source(str, Enum):
     GITHUB = "github"
@@ -45,10 +47,6 @@ class Report(BaseModel):
     draft_model: str
     audit_model: str
     rewrite_model: str = ""
-    token_usage: dict[str, TokenUsage] = Field(default_factory=lambda: {
-        "draft": TokenUsage(),
-        "audit": TokenUsage(),
-        "rewrite": TokenUsage(),
-    })
+    token_usage: dict[str, TokenUsage] = Field(default_factory=lambda: {s: TokenUsage() for s in LLM_STAGES})
     sections: dict[str, str]
     file_path: str
