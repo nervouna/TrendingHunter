@@ -11,3 +11,4 @@ reports/
 .claude/
 config.yaml
 cron.log
+.coverage
