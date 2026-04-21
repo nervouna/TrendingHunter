@@ -37,13 +37,13 @@ tavily:
   api_key: "${TH_TAVILY_API_KEY}"
 
 model_pricing:
-  your-draft-model:
+  draft:
     input_per_million: 0.00
     output_per_million: 0.00
-  your-audit-model:
+  audit:
     input_per_million: 0.29
     output_per_million: 0.44
-  your-rewrite-model:
+  rewrite:
     input_per_million: 0.00
     output_per_million: 0.00
 

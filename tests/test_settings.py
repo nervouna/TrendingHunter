@@ -65,14 +65,14 @@ def test_load_settings_model_pricing(tmp_path):
             "audit": {"api_key": "k", "model": "m2"},
         },
         "model_pricing": {
-            "m1": {"input_per_million": 0.80, "output_per_million": 4.00},
-            "m2": {"input_per_million": 3.00, "output_per_million": 15.00},
+            "draft": {"input_per_million": 0.80, "output_per_million": 4.00},
+            "audit": {"input_per_million": 3.00, "output_per_million": 15.00},
         },
     }))
     from trending_hunter.config import load_config
     settings = load_config(str(cfg_file))
-    assert settings.model_pricing["m1"].input_per_million == 0.80
-    assert settings.model_pricing["m2"].output_per_million == 15.00
+    assert settings.model_pricing["draft"].input_per_million == 0.80
+    assert settings.model_pricing["audit"].output_per_million == 15.00
 
 
 def test_load_settings_llm_timeout(tmp_path):

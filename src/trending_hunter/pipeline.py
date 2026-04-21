@@ -9,7 +9,7 @@ from trending_hunter.llm.client import LLMClient
 from trending_hunter.llm.draft import generate_draft
 from trending_hunter.llm.rewrite import rewrite_report
 from trending_hunter.log import get_logger
-from trending_hunter.models import Project, Report, TokenUsage
+from trending_hunter.models import LLM_STAGES, Project, Report, TokenUsage
 from trending_hunter.settings import Settings
 from trending_hunter.writer import get_report_path, save_report
 
@@ -85,12 +85,8 @@ def run_pipeline(projects: list[Project], settings: Settings, language: str = ""
             path = save_report(report, base_dir=kb_path)
 
             cost = sum(
-                estimate_cost(model, t.input_tokens, t.output_tokens, pricing)
-                for model, t in (
-                    (settings.llm.draft.model, token_usage["draft"]),
-                    (settings.llm.audit.model, token_usage["audit"]),
-                    (settings.llm.rewrite.model, token_usage["rewrite"]),
-                )
+                estimate_cost(stage, token_usage[stage].input_tokens, token_usage[stage].output_tokens, pricing)
+                for stage in LLM_STAGES
             )
 
             results.append(PipelineResult(

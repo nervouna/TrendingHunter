@@ -122,13 +122,13 @@ def test_save_report_idempotent(tmp_path):
 
 
 def test_estimate_cost_with_pricing():
-    pricing = {"m1": ModelPricing(input_per_million=1.0, output_per_million=2.0)}
-    cost = estimate_cost("m1", 1_000_000, 1_000_000, pricing)
+    pricing = {"draft": ModelPricing(input_per_million=1.0, output_per_million=2.0)}
+    cost = estimate_cost("draft", 1_000_000, 1_000_000, pricing)
     assert cost == 3.0
 
 
 def test_estimate_cost_without_pricing():
-    cost = estimate_cost("unknown-model", 1000, 500)
+    cost = estimate_cost("unknown-stage", 1000, 500)
     assert cost > 0
 
 
