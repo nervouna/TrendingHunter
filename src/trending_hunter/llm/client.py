@@ -9,6 +9,7 @@ from typing import TypeVar
 import anthropic
 
 from trending_hunter.log import get_logger
+from trending_hunter.settings import LLMStageConfig
 
 _SECTION_RE = re.compile(r"^## (.+)$", re.MULTILINE)
 _T = TypeVar("_T")
@@ -69,6 +70,16 @@ class LLMClient:
         os.environ.update(_prev)
         self._model = model
         self._max_tokens = max_tokens
+
+    @classmethod
+    def from_stage_config(cls, cfg: LLMStageConfig) -> LLMClient:
+        return cls(
+            api_key=cfg.api_key,
+            model=cfg.model,
+            max_tokens=cfg.max_tokens,
+            base_url=cfg.base_url or None,
+            timeout=cfg.timeout,
+        )
 
     def call(self, system: str, user: str) -> tuple[dict[str, str], dict[str, int]]:
         log.info("LLM call: model=%s", self._model)
