@@ -75,6 +75,35 @@ def test_audit_report_returns_sections():
     client.call_with_tools.assert_called_once()
 
 
+def test_audit_report_hn_source_includes_headline_hint():
+    client = MagicMock(spec=LLMClient)
+    client.call_with_tools.return_value = (_mock_sections(), {"input": 1, "output": 1})
+
+    hn_project = Project(
+        name="Pgbackrest is no longer being maintained",
+        source=Source.HACKER_NEWS,
+        url="https://news.ycombinator.com/item?id=123",
+        stars=0,
+        star_velocity=0.0,
+        description="HN discussion",
+    )
+
+    audit_report(_mock_sections(), hn_project, client, tavily_key="fake")
+
+    system_arg = client.call_with_tools.call_args[0][0]
+    assert "headline" in system_arg.lower()
+
+
+def test_audit_report_non_hn_source_no_headline_hint():
+    client = MagicMock(spec=LLMClient)
+    client.call_with_tools.return_value = (_mock_sections(), {"input": 1, "output": 1})
+
+    audit_report(_mock_sections(), _sample_project(), client, tavily_key="fake")
+
+    system_arg = client.call_with_tools.call_args[0][0]
+    assert "headline" not in system_arg.lower()
+
+
 def test_llm_client_calls_anthropic():
     mock_response = MagicMock()
     mock_response.content = [MagicMock(text="## TL;DR\nTest.")]

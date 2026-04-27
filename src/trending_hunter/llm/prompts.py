@@ -40,6 +40,10 @@ Your job:
 
 You are NOT a fact-checker. You are a market analyst. Use the tools to research market positioning, user adoption signals, and technology relevance — then write stronger analysis."""
 
+AUDIT_HN_HEADLINE_HINT = """
+
+Note: On Hacker News, the project title is a user-submitted headline that may state a claim (e.g., "X is deprecated", "Y outperforms Z"). Do not spend tool calls verifying or refuting such headlines — analyze the underlying product described in the draft."""
+
 AUDIT_USER = """Deepen this draft report about {name}:
 
 {draft}
