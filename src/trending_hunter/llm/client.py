@@ -56,6 +56,7 @@ class LLMClient:
         max_tokens: int = 4096,
         base_url: str | None = None,
         timeout: float = 120.0,
+        max_tool_rounds: int = 5,
     ) -> None:
         kwargs: dict[str, object] = {"api_key": api_key, "timeout": timeout}
         if base_url:
@@ -70,6 +71,7 @@ class LLMClient:
         os.environ.update(_prev)
         self._model = model
         self._max_tokens = max_tokens
+        self._max_tool_rounds = max_tool_rounds
 
     @classmethod
     def from_stage_config(cls, cfg: LLMStageConfig) -> LLMClient:
@@ -79,6 +81,7 @@ class LLMClient:
             max_tokens=cfg.max_tokens,
             base_url=cfg.base_url or None,
             timeout=cfg.timeout,
+            max_tool_rounds=cfg.max_tool_rounds,
         )
 
     def call(self, system: str, user: str) -> tuple[dict[str, str], dict[str, int]]:
@@ -110,16 +113,17 @@ class LLMClient:
         user: str,
         tools: list[dict],
         tool_handler: Callable[[str, dict], str],
-        max_rounds: int = 5,
+        max_rounds: int | None = None,
     ) -> tuple[dict[str, str], dict[str, int]]:
+        effective_rounds = max_rounds if max_rounds is not None else self._max_tool_rounds
         log.info("LLM call_with_tools: model=%s tools=%s", self._model, [t["name"] for t in tools])
 
         messages = [{"role": "user", "content": user}]
         total_input = 0
         total_output = 0
 
-        for round_num in range(max_rounds):
-            log.debug("Tool round %d/%d", round_num + 1, max_rounds)
+        for round_num in range(effective_rounds):
+            log.debug("Tool round %d/%d", round_num + 1, effective_rounds)
 
             def _do_call() -> object:
                 return self._client.messages.create(
@@ -158,7 +162,7 @@ class LLMClient:
             messages.append({"role": "assistant", "content": response.content})
             messages.append({"role": "user", "content": tool_results})
 
-        log.warning("LLM tool loop exhausted after %d rounds, forcing final response", max_rounds)
+        log.warning("LLM tool loop exhausted after %d rounds, forcing final response", effective_rounds)
         messages.append({"role": "user", "content": "Stop using tools. Write the final report now based on everything you've gathered."})
 
         def _do_final() -> object:

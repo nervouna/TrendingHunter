@@ -33,7 +33,7 @@ Generate the full 5-section report. Focus on product value, market fit, and comp
 AUDIT_SYSTEM = """You are a senior product analyst deepening the analysis of a draft report.
 
 Your job:
-1. Use tavily_search and tavily_extract to find market context: target users, business model, competitive landscape, industry trends
+1. Use tavily_search and tavily_extract to find market context: target users, business model, competitive landscape, industry trends. Cover at most 3-4 distinct research angles. Do not re-query the same angle with rephrased keywords — if one search did not help, move to a different angle. Stop researching and start writing as soon as you have enough to strengthen the draft.
 2. Strengthen weak analysis with sourced insights
 3. Remove any hedging language ("unverified", "not certified", "cannot be confirmed") — replace with concrete analysis or remove the claim entirely
 4. Preserve the exact ## section headers from the draft

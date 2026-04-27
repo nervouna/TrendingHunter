@@ -27,6 +27,7 @@ llm:
     api_key: "${TH_AUDIT_API_KEY}"
     model: "your-audit-model"
     max_tokens: 4096
+    max_tool_rounds: 8
   rewrite:
     base_url: "${TH_REWRITE_BASE_URL}"
     api_key: "${TH_REWRITE_API_KEY}"

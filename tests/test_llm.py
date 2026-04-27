@@ -210,6 +210,47 @@ def test_call_with_tools_max_rounds_exhausted():
     assert handler.call_count == 2
 
 
+def test_call_with_tools_uses_client_max_tool_rounds_default():
+    mock_response = MagicMock()
+    tool_block = MagicMock()
+    tool_block.type = "tool_use"
+    tool_block.name = "tavily_search"
+    tool_block.input = {"query": "q"}
+    tool_block.id = "t-1"
+    mock_response.content = [tool_block]
+    mock_response.stop_reason = "tool_use"
+    mock_response.usage.input_tokens = 10
+    mock_response.usage.output_tokens = 5
+
+    mock_final = MagicMock()
+    mock_final.content = [MagicMock(text="## TL;DR\nForced final.")]
+    mock_final.usage.input_tokens = 20
+    mock_final.usage.output_tokens = 10
+
+    with patch("trending_hunter.llm.client.anthropic.Anthropic") as mock_cls:
+        mock_cls.return_value.messages.create.side_effect = [
+            mock_response, mock_response, mock_response, mock_final
+        ]
+        client = LLMClient(api_key="k", model="m", max_tool_rounds=3)
+        handler = MagicMock(return_value="r")
+        sections, _ = client.call_with_tools(
+            "sys", "usr",
+            tools=[{"name": "tavily_search", "input_schema": {}}],
+            tool_handler=handler,
+        )
+
+    assert "TL;DR" in sections
+    assert handler.call_count == 3
+
+
+def test_llmclient_from_stage_config_propagates_max_tool_rounds():
+    from trending_hunter.settings import LLMStageConfig
+    cfg = LLMStageConfig(api_key="k", model="m", max_tool_rounds=12)
+    with patch("trending_hunter.llm.client.anthropic.Anthropic"):
+        client = LLMClient.from_stage_config(cfg)
+    assert client._max_tool_rounds == 12
+
+
 def test_audit_report_without_tavily():
     client = MagicMock(spec=LLMClient)
     client.call.return_value = (_mock_sections(), {"input": 100, "output": 200})

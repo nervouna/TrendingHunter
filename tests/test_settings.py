@@ -91,6 +91,22 @@ def test_load_settings_llm_timeout(tmp_path):
     assert settings.llm.audit.timeout == 120.0
 
 
+def test_load_settings_llm_max_tool_rounds(tmp_path):
+    cfg_file = tmp_path / "config.yaml"
+    cfg_file.write_text(yaml.dump({
+        "sources": {"github": {"enabled": True}},
+        "signal_gate": {"min_star_velocity": 10.0},
+        "llm": {
+            "draft": {"api_key": "k", "model": "m1"},
+            "audit": {"api_key": "k", "model": "m2", "max_tool_rounds": 10},
+        },
+    }))
+    from trending_hunter.config import load_config
+    settings = load_config(str(cfg_file))
+    assert settings.llm.audit.max_tool_rounds == 10
+    assert settings.llm.draft.max_tool_rounds == 8
+
+
 def test_load_dotenv_missing_file(tmp_path, monkeypatch):
     import trending_hunter.config as cfg
     old = cfg._ENV_LOADED
