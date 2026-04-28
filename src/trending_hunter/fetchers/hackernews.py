@@ -16,6 +16,7 @@ def _fetch_json(path: str, proxy: str | None = None) -> object:
     client_kwargs: dict[str, object] = {
         "headers": {"User-Agent": _USER_AGENT},
         "timeout": 15,
+        "trust_env": False,
     }
     if proxy:
         client_kwargs["proxy"] = proxy

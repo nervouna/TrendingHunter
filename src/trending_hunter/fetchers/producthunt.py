@@ -39,6 +39,7 @@ def _ph_graphql(
             "Content-Type": "application/json",
         },
         "timeout": 15,
+        "trust_env": False,
     }
     if proxy:
         client_kwargs["proxy"] = proxy

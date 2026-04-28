@@ -70,7 +70,7 @@ def fetch_trending(
     params = {"since": since}
 
     headers = {"User-Agent": _USER_AGENT, "Accept": "text/html"}
-    client_kwargs: dict[str, object] = {"headers": headers, "follow_redirects": True, "timeout": 15}
+    client_kwargs: dict[str, object] = {"headers": headers, "follow_redirects": True, "timeout": 15, "trust_env": False}
     if proxy:
         client_kwargs["proxy"] = proxy
 

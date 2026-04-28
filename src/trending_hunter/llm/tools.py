@@ -24,6 +24,7 @@ def tavily_search(query: str, api_key: str, max_results: int = 3) -> str:
         json={"query": query, "max_results": max_results, "include_answer": False},
         headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
         timeout=15,
+        trust_env=False,
     )
     resp.raise_for_status()
     data = resp.json()
@@ -51,6 +52,7 @@ def tavily_extract(url: str, api_key: str, max_chars: int = 3000) -> str:
         json={"urls": [url], "extract_depth": "basic", "format": "markdown"},
         headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
         timeout=30,
+        trust_env=False,
     )
     resp.raise_for_status()
     data = resp.json()
