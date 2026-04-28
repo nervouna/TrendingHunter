@@ -49,4 +49,4 @@ Pipeline: `fetcher → gate → LLM (draft → audit → rewrite) → writer`
   - `TH_REWRITE_BASE_URL`, `TH_REWRITE_API_KEY`
   - `TH_TAVILY_API_KEY`, `TH_PRODUCTHUNT_TOKEN`
 - Env var resolution: `${VAR_NAME}` syntax in `config.yaml` is expanded by `config.py`
-- Override any config key via `TH_` prefix env vars (e.g. `TH_LLM_DRAFT_MODEL=...`)
+- Override any config key via `TH__` prefix env vars with `__` as level separator (e.g. `TH__LLM__DRAFT__MODEL=...`)

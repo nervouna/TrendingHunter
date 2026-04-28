@@ -69,7 +69,7 @@ Reports are idempotent: existing reports for the same project+date are skipped.
 cp config.example.yaml config.yaml
 ```
 
-Secrets are stored in `.env` (gitignored) and referenced via `${VAR_NAME}` syntax in `config.yaml`. The config loader also supports `TH_*` env var overrides — any config key can be overridden without editing YAML (e.g. `TH_LLM_DRAFT_MODEL=gpt-4o`).
+Secrets are stored in `.env` (gitignored) and referenced via `${VAR_NAME}` syntax in `config.yaml`. The config loader also supports `TH__*` env var overrides — any config key can be overridden without editing YAML using double-underscore `__` as a level separator (e.g. `TH__LLM__DRAFT__MODEL=gpt-4o`).
 
 Required env vars:
 

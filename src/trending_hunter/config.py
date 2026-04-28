@@ -39,11 +39,11 @@ def _resolve_env_vars(value: str) -> str:
     return re.sub(r"\$\{(\w+)\}", replace, value)
 
 
-def _apply_env_overrides(cfg: dict, prefix: str = "TH_") -> dict:
+def _apply_env_overrides(cfg: dict, prefix: str = "TH__") -> dict:
     for key, value in os.environ.items():
         if not key.startswith(prefix):
             continue
-        path = key[len(prefix):].lower().split("_")
+        path = key[len(prefix):].lower().split("__")
         node = cfg
         for part in path[:-1]:
             node = node.setdefault(part, {})

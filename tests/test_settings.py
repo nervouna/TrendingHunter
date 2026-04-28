@@ -40,7 +40,7 @@ def test_load_settings_env_var_resolution(tmp_path, monkeypatch):
 
 
 def test_load_settings_th_env_override(tmp_path, monkeypatch):
-    monkeypatch.setenv("TH_LLM_DRAFT_MODEL", "overridden-model")
+    monkeypatch.setenv("TH__LLM__DRAFT__MODEL", "overridden-model")
     cfg_file = tmp_path / "config.yaml"
     cfg_file.write_text(yaml.dump({
         "sources": {"github": {"enabled": True}},
@@ -53,6 +53,22 @@ def test_load_settings_th_env_override(tmp_path, monkeypatch):
     from trending_hunter.config import load_config
     settings = load_config(str(cfg_file))
     assert settings.llm.draft.model == "overridden-model"
+
+
+def test_env_override_underscore_keys(tmp_path, monkeypatch):
+    monkeypatch.setenv("TH__SIGNAL_GATE__MIN_STAR_VELOCITY", "99.0")
+    cfg_file = tmp_path / "config.yaml"
+    cfg_file.write_text(yaml.dump({
+        "sources": {"github": {"enabled": True}},
+        "signal_gate": {"min_star_velocity": 5.0},
+        "llm": {
+            "draft": {"api_key": "k", "model": "m1"},
+            "audit": {"api_key": "k", "model": "m2"},
+        },
+    }))
+    from trending_hunter.config import load_config
+    settings = load_config(str(cfg_file))
+    assert settings.signal_gate.min_star_velocity == 99.0
 
 
 def test_load_settings_model_pricing(tmp_path):
