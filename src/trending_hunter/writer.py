@@ -5,20 +5,13 @@ from pathlib import Path
 
 import yaml
 
-from trending_hunter.models import Project, Report, Source
+from trending_hunter.models import Project, Report, Source, sections_to_text
 
 _SOURCE_LABELS: dict[Source, tuple[str, str]] = {
     Source.GITHUB: ("Stars", "stars/day"),
     Source.HACKER_NEWS: ("Score", "score/day"),
     Source.PRODUCT_HUNT: ("Votes", "votes/day"),
 }
-
-
-def sections_to_text(sections: dict[str, str]) -> str:
-    parts: list[str] = []
-    for name, content in sections.items():
-        parts.append(f"## {name}\n{content}")
-    return "\n\n".join(parts)
 
 
 def render_report(report: Report) -> str:

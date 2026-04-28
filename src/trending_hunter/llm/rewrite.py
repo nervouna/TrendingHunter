@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from trending_hunter.llm.client import LLMClient
 from trending_hunter.llm.prompts import REWRITE_SYSTEM, REWRITE_USER, get_language_modifier
-from trending_hunter.writer import sections_to_text
+from trending_hunter.models import sections_to_text
 
 
 def rewrite_report(

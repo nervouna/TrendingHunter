@@ -11,8 +11,7 @@ from trending_hunter.llm.prompts import (
     get_language_modifier,
 )
 from trending_hunter.llm.tools import tavily_extract, tavily_search
-from trending_hunter.models import Project, Source
-from trending_hunter.writer import sections_to_text
+from trending_hunter.models import Project, Source, sections_to_text
 
 
 def _make_tool_handler(api_key: str):

@@ -36,6 +36,13 @@ class Project(BaseModel):
     readme_excerpt: str = ""
 
 
+def sections_to_text(sections: dict[str, str]) -> str:
+    parts: list[str] = []
+    for name, content in sections.items():
+        parts.append(f"## {name}\n{content}")
+    return "\n\n".join(parts)
+
+
 class TokenUsage(BaseModel):
     input_tokens: int = 0
     output_tokens: int = 0
