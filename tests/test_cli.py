@@ -89,9 +89,8 @@ def test_run_cycle_no_source_config(mock_load):
 
 
 @patch("trending_hunter.cli.filter_projects", return_value=[])
-@patch("trending_hunter.cli.fetch_trending", return_value=[])
 @patch("trending_hunter.cli.load_config")
-def test_run_cycle_dry_run(mock_load, mock_fetch, mock_filter):
+def test_run_cycle_dry_run(mock_load, mock_filter):
     settings = MagicMock()
     settings.sources.github.enabled = True
     settings.sources.github.language = ""
@@ -109,20 +108,20 @@ def test_run_cycle_dry_run(mock_load, mock_fetch, mock_filter):
         star_velocity=10.0,
         description="test",
     )
-    mock_fetch.return_value = [proj]
+    mock_fetch = MagicMock(return_value=[proj])
     mock_filter.return_value = [proj]
 
     runner = CliRunner()
-    result = runner.invoke(cli, ["run", "--source", "github", "--dry-run"])
+    with patch.dict("trending_hunter.cli._FETCHERS", {"github": mock_fetch}):
+        result = runner.invoke(cli, ["run", "--source", "github", "--dry-run"])
     assert result.exit_code == 0
     assert "owner/repo" in result.output
 
 
 @patch("trending_hunter.cli.run_pipeline")
 @patch("trending_hunter.cli.filter_projects")
-@patch("trending_hunter.cli.fetch_trending")
 @patch("trending_hunter.cli.load_config")
-def test_run_cycle_with_results(mock_load, mock_fetch, mock_filter, mock_pipeline):
+def test_run_cycle_with_results(mock_load, mock_filter, mock_pipeline):
     settings = MagicMock()
     settings.sources.github.enabled = True
     settings.sources.github.language = ""
@@ -133,7 +132,7 @@ def test_run_cycle_with_results(mock_load, mock_fetch, mock_filter, mock_pipelin
     from trending_hunter.models import Project, Source, TokenUsage
     from trending_hunter.pipeline import PipelineResult
     proj = Project(name="owner/repo", source=Source.GITHUB, url="https://github.com/owner/repo", stars=100, star_velocity=10.0, description="test")
-    mock_fetch.return_value = [proj]
+    mock_fetch = MagicMock(return_value=[proj])
     mock_filter.return_value = [proj]
 
     result_obj = PipelineResult(
@@ -145,7 +144,8 @@ def test_run_cycle_with_results(mock_load, mock_fetch, mock_filter, mock_pipelin
     mock_pipeline.return_value = [result_obj]
 
     runner = CliRunner()
-    result = runner.invoke(cli, ["run", "--source", "github"])
+    with patch.dict("trending_hunter.cli._FETCHERS", {"github": mock_fetch}):
+        result = runner.invoke(cli, ["run", "--source", "github"])
     assert result.exit_code == 0
     assert "Saved:" in result.output
     assert "Cost:" in result.output
@@ -153,9 +153,8 @@ def test_run_cycle_with_results(mock_load, mock_fetch, mock_filter, mock_pipelin
 
 @patch("trending_hunter.cli.run_pipeline")
 @patch("trending_hunter.cli.filter_projects")
-@patch("trending_hunter.cli.fetch_trending")
 @patch("trending_hunter.cli.load_config")
-def test_run_cycle_with_error(mock_load, mock_fetch, mock_filter, mock_pipeline):
+def test_run_cycle_with_error(mock_load, mock_filter, mock_pipeline):
     settings = MagicMock()
     settings.sources.github.enabled = True
     settings.sources.github.language = ""
@@ -166,23 +165,23 @@ def test_run_cycle_with_error(mock_load, mock_fetch, mock_filter, mock_pipeline)
     from trending_hunter.models import Project, Source
     from trending_hunter.pipeline import PipelineResult
     proj = Project(name="owner/repo", source=Source.GITHUB, url="https://github.com/owner/repo", stars=100, star_velocity=10.0, description="test")
-    mock_fetch.return_value = [proj]
+    mock_fetch = MagicMock(return_value=[proj])
     mock_filter.return_value = [proj]
 
     result_obj = PipelineResult(project=proj, error="LLM failed", status="error")
     mock_pipeline.return_value = [result_obj]
 
     runner = CliRunner()
-    result = runner.invoke(cli, ["run", "--source", "github"])
+    with patch.dict("trending_hunter.cli._FETCHERS", {"github": mock_fetch}):
+        result = runner.invoke(cli, ["run", "--source", "github"])
     assert result.exit_code == 0
     assert "ERROR:" in result.output
 
 
 @patch("trending_hunter.cli.run_pipeline")
 @patch("trending_hunter.cli.filter_projects")
-@patch("trending_hunter.cli.fetch_trending")
 @patch("trending_hunter.cli.load_config")
-def test_run_cycle_with_skipped(mock_load, mock_fetch, mock_filter, mock_pipeline):
+def test_run_cycle_with_skipped(mock_load, mock_filter, mock_pipeline):
     settings = MagicMock()
     settings.sources.github.enabled = True
     settings.sources.github.language = ""
@@ -193,14 +192,15 @@ def test_run_cycle_with_skipped(mock_load, mock_fetch, mock_filter, mock_pipelin
     from trending_hunter.models import Project, Source
     from trending_hunter.pipeline import PipelineResult
     proj = Project(name="owner/repo", source=Source.GITHUB, url="https://github.com/owner/repo", stars=100, star_velocity=10.0, description="test")
-    mock_fetch.return_value = [proj]
+    mock_fetch = MagicMock(return_value=[proj])
     mock_filter.return_value = [proj]
 
     result_obj = PipelineResult(project=proj, file_path="/tmp/test.md", status="skipped")
     mock_pipeline.return_value = [result_obj]
 
     runner = CliRunner()
-    result = runner.invoke(cli, ["run", "--source", "github"])
+    with patch.dict("trending_hunter.cli._FETCHERS", {"github": mock_fetch}):
+        result = runner.invoke(cli, ["run", "--source", "github"])
     assert result.exit_code == 0
     assert "SKIPPED:" in result.output
 
@@ -226,9 +226,8 @@ def test_run_cycle_not_implemented(mock_load, capsys):
 
 
 @patch("trending_hunter.cli.filter_projects")
-@patch("trending_hunter.cli.fetch_trending")
 @patch("trending_hunter.cli.load_config")
-def test_run_cycle_with_limit(mock_load, mock_fetch, mock_filter):
+def test_run_cycle_with_limit(mock_load, mock_filter):
     settings = MagicMock()
     settings.sources.github.enabled = True
     settings.sources.github.language = ""
@@ -239,11 +238,12 @@ def test_run_cycle_with_limit(mock_load, mock_fetch, mock_filter):
     from trending_hunter.models import Project, Source
     proj1 = Project(name="a/b", source=Source.GITHUB, url="https://github.com/a/b", stars=100, star_velocity=10.0, description="test1")
     proj2 = Project(name="c/d", source=Source.GITHUB, url="https://github.com/c/d", stars=200, star_velocity=20.0, description="test2")
-    mock_fetch.return_value = [proj1, proj2]
+    mock_fetch = MagicMock(return_value=[proj1, proj2])
     mock_filter.return_value = [proj1, proj2]
 
     runner = CliRunner()
-    result = runner.invoke(cli, ["run", "--source", "github", "--limit", "1", "--dry-run"])
+    with patch.dict("trending_hunter.cli._FETCHERS", {"github": mock_fetch}):
+        result = runner.invoke(cli, ["run", "--source", "github", "--limit", "1", "--dry-run"])
     assert result.exit_code == 0
     assert "Limited to 1" in result.output
 
