@@ -11,7 +11,7 @@ from trending_hunter.fetchers.github import fetch_trending
 from trending_hunter.fetchers.producthunt import fetch_producthunt
 from trending_hunter.fetchers.hackernews import fetch_hackernews
 from trending_hunter.gate import filter_projects
-from trending_hunter.llm.tools import _clear_cache
+from trending_hunter.llm.tools import clear_cache
 from trending_hunter.log import get_logger, setup_logging
 from trending_hunter.models import LLM_STAGES, Project
 from trending_hunter.pipeline import run_pipeline
@@ -76,7 +76,7 @@ def run_cycle(source: str, config_path: str, limit: int, dry_run: bool, language
             click.echo(f"  {r.name} | {r.stars} stars | {vel}/day")
         return
 
-    _clear_cache()
+    clear_cache()
     seen = SeenUrls(f"{settings.knowledge_base.path}/.seen_urls.json")
     seen.load()
     results = run_pipeline(passed, settings, language=language, seen=seen)

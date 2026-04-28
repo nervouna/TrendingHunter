@@ -9,7 +9,7 @@ log = get_logger()
 _cache: dict[tuple[str, str], str] = {}
 
 
-def _clear_cache() -> None:
+def clear_cache() -> None:
     _cache.clear()
 
 
