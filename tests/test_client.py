@@ -70,3 +70,11 @@ def test_from_stage_config_empty_base_url():
         client = LLMClient.from_stage_config(cfg)
 
     assert client._model == "m"
+
+
+def test_llmclient_passes_trust_env_false_to_httpx():
+    with patch("trending_hunter.llm.client.httpx.Client") as mock_httpx, \
+         patch("trending_hunter.llm.client.anthropic.Anthropic"):
+        LLMClient(api_key="k", model="m", timeout=30.0)
+    assert mock_httpx.call_args.kwargs["trust_env"] is False
+    assert mock_httpx.call_args.kwargs["timeout"] == 30.0

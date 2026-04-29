@@ -7,6 +7,7 @@ from collections.abc import Callable
 from typing import TypeVar
 
 import anthropic
+import httpx
 
 from trending_hunter.log import get_logger
 from trending_hunter.settings import LLMStageConfig
@@ -58,7 +59,11 @@ class LLMClient:
         timeout: float = 120.0,
         max_tool_rounds: int = 5,
     ) -> None:
-        kwargs: dict[str, object] = {"api_key": api_key, "timeout": timeout}
+        kwargs: dict[str, object] = {
+            "api_key": api_key,
+            "timeout": timeout,
+            "http_client": httpx.Client(trust_env=False, timeout=timeout),
+        }
         if base_url:
             base_url = re.sub(r"/v1/messages/?$", "", base_url.rstrip("/"))
             kwargs["base_url"] = base_url
