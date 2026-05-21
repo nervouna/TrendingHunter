@@ -2,15 +2,14 @@
 
 Automated pipeline that discovers trending open-source projects and generates analytical reports using LLMs.
 
-Fetches from GitHub Trending, Product Hunt, and Hacker News, filters by signal (star velocity, repo age), then runs a 3-stage LLM pipeline (Draft → Audit → Rewrite) to produce structured Markdown reports.
+Fetches from GitHub Trending, Product Hunt, and Hacker News, filters by source-specific signal, then runs a 3-stage LLM pipeline (Draft → Audit → Rewrite) to produce structured Markdown reports.
 
 ## Quick Start
 
 ```bash
-# Create venv and install
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -e ".[dev]"
+# Install the pinned Python and sync the project environment
+mise install
+uv sync --extra dev
 
 # Configure
 cp config.example.yaml config.yaml
@@ -18,17 +17,19 @@ cp .env.example .env
 # Edit config.yaml (models, thresholds) and .env (API keys)
 
 # Run a single pipeline
-th run --source github --limit 3
+uv run th run --source github --limit 3
 
 # Run with Chinese output
-th run --source github --limit 3 -l chinese
+uv run th run --source github --limit 3 -l chinese
 
 # Schedule periodic runs (every hour)
-th schedule --interval 3600
+uv run th schedule --interval 3600
 
 # Search existing reports
-th search --keyword "AI"
+uv run th search --keyword "AI"
 ```
+
+No manual virtualenv activation is required; `uv sync` manages the project environment in `.venv`.
 
 ## CLI
 
@@ -53,9 +54,9 @@ Fetcher → Signal Gate → LLM Pipeline → Writer
 ```
 
 1. **Fetch** — pull trending projects from configured sources
-2. **Filter** — signal gate drops projects below thresholds (star velocity, repo age)
-3. **Draft** — LLM generates initial 11-section analysis from project data + web research
-4. **Audit** — second LLM fact-checks the draft using Tavily web search
+2. **Filter** — signal gate drops projects below thresholds (stars, votes, score velocity, and repo age where available)
+3. **Draft** — LLM generates initial 5-section analysis from project data + web research
+4. **Audit** — second LLM verifies and strengthens the draft using Tavily web search
 5. **Rewrite** — third LLM polishes into clean prose
 6. **Save** — Markdown report saved to `./reports/`
 
@@ -87,6 +88,7 @@ Required env vars:
 ## Development
 
 ```bash
-python -m pytest tests/ -v          # all tests
-python -m pytest tests/test_cli.py -v  # single file
+uv run python -m pytest tests/ -v      # all tests
+uv run ruff check .                    # lint
+uv run mypy src                        # type check source
 ```
