@@ -1,4 +1,3 @@
-import time
 from unittest.mock import MagicMock, patch
 
 import anthropic
@@ -14,7 +13,9 @@ def test_retry_call_succeeds_first_try():
 
 
 def test_retry_call_retries_on_connection_error():
-    fn = MagicMock(side_effect=[anthropic.APIConnectionError(request=MagicMock()), "ok"])
+    fn = MagicMock(
+        side_effect=[anthropic.APIConnectionError(request=MagicMock()), "ok"]
+    )
     with patch("time.sleep"):
         result = _retry_call(fn, max_retries=3)
     assert result == "ok"
@@ -22,7 +23,14 @@ def test_retry_call_retries_on_connection_error():
 
 
 def test_retry_call_retries_on_rate_limit():
-    fn = MagicMock(side_effect=[anthropic.RateLimitError(message="rate limited", response=MagicMock(), body=None), "ok"])
+    fn = MagicMock(
+        side_effect=[
+            anthropic.RateLimitError(
+                message="rate limited", response=MagicMock(), body=None
+            ),
+            "ok",
+        ]
+    )
     with patch("time.sleep"):
         result = _retry_call(fn, max_retries=3)
     assert result == "ok"
@@ -30,7 +38,11 @@ def test_retry_call_retries_on_rate_limit():
 
 
 def test_retry_call_raises_on_status_error():
-    fn = MagicMock(side_effect=anthropic.APIStatusError(message="400", response=MagicMock(), body=None))
+    fn = MagicMock(
+        side_effect=anthropic.APIStatusError(
+            message="400", response=MagicMock(), body=None
+        )
+    )
     try:
         _retry_call(fn, max_retries=3)
         assert False, "Should have raised"

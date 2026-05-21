@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 
 from trending_hunter.llm.client import LLMClient
@@ -18,8 +19,19 @@ def generate_draft(
     search_ctx = ""
 
     if tavily_key:
-        extracted = tavily_extract(project.url, tavily_key)
-        search_ctx = tavily_search(f"{project.name} open source review", tavily_key)
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            extract_future = executor.submit(tavily_extract, project.url, tavily_key)
+            search_future = executor.submit(
+                tavily_search,
+                f"{project.name} open source review",
+                tavily_key,
+            )
+            try:
+                extracted = extract_future.result()
+            except Exception:
+                search_future.cancel()
+                raise
+            search_ctx = search_future.result()
 
     user = DRAFT_USER.format(
         name=project.name,

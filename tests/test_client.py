@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from trending_hunter.llm.client import _parse_sections
-from trending_hunter.llm.prompts import AUDIT_SYSTEM, DRAFT_SYSTEM, REWRITE_SYSTEM
+from trending_hunter.llm.prompts import DRAFT_SYSTEM, REWRITE_SYSTEM
 
 CANONICAL_HEADERS = [
     "TL;DR",

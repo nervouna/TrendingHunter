@@ -1,21 +1,29 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import datetime
+from typing import Any
 
 from trending_hunter.llm.client import LLMClient
-from trending_hunter.llm.prompts import AUDIT_SYSTEM, AUDIT_USER, TAVILY_TOOLS, get_language_modifier
+from trending_hunter.llm.prompts import (
+    AUDIT_SYSTEM,
+    AUDIT_USER,
+    TAVILY_TOOLS,
+    get_language_modifier,
+)
 from trending_hunter.llm.tools import tavily_extract, tavily_search
 from trending_hunter.models import Project
-from trending_hunter.writer import sections_to_text
+from trending_hunter.utils import sections_to_text
 
 
-def _make_tool_handler(api_key: str):
-    def handler(name: str, input_data: dict) -> str:
+def _make_tool_handler(api_key: str) -> Callable[[str, dict[str, Any]], str]:
+    def handler(name: str, input_data: dict[str, Any]) -> str:
         if name == "tavily_search":
             return tavily_search(input_data["query"], api_key)
         if name == "tavily_extract":
             return tavily_extract(input_data["url"], api_key)
         return f"Unknown tool: {name}"
+
     return handler
 
 

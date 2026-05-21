@@ -4,7 +4,7 @@ import os
 import re
 import time
 from collections.abc import Callable
-from typing import TypeVar
+from typing import Any, TypeVar, cast
 
 import anthropic
 
@@ -30,7 +30,11 @@ def _parse_sections(text: str) -> dict[str, str]:
     return sections
 
 
-_RETRYABLE = (anthropic.APIConnectionError, anthropic.RateLimitError, anthropic.APITimeoutError)
+_RETRYABLE = (
+    anthropic.APIConnectionError,
+    anthropic.RateLimitError,
+    anthropic.APITimeoutError,
+)
 
 
 def _retry_call(fn: Callable[[], _T], max_retries: int = 3) -> _T:
@@ -42,9 +46,13 @@ def _retry_call(fn: Callable[[], _T], max_retries: int = 3) -> _T:
             last_exc = exc
             if attempt < max_retries - 1:
                 delay = 2 ** (attempt + 1)
-                log.warning("Retry %d/%d after %ds: %s", attempt + 1, max_retries, delay, exc)
+                log.warning(
+                    "Retry %d/%d after %ds: %s", attempt + 1, max_retries, delay, exc
+                )
                 time.sleep(delay)
-    raise last_exc  # type: ignore[misc]
+    if last_exc is None:
+        raise RuntimeError("retry called with no attempts")
+    raise last_exc
 
 
 class LLMClient:
@@ -56,16 +64,21 @@ class LLMClient:
         base_url: str | None = None,
         timeout: float = 120.0,
     ) -> None:
-        kwargs: dict[str, object] = {"api_key": api_key, "timeout": timeout}
         if base_url:
             base_url = re.sub(r"/v1/messages/?$", "", base_url.rstrip("/"))
-            kwargs["base_url"] = base_url
         # Clear env vars that the SDK reads — we pass api_key explicitly
-        _prev = {}
+        _prev: dict[str, str] = {}
         for _k in ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN"):
             if _k in os.environ:
                 _prev[_k] = os.environ.pop(_k)
-        self._client = anthropic.Anthropic(**kwargs)
+        if base_url:
+            self._client = anthropic.Anthropic(
+                api_key=api_key,
+                timeout=timeout,
+                base_url=base_url,
+            )
+        else:
+            self._client = anthropic.Anthropic(api_key=api_key, timeout=timeout)
         os.environ.update(_prev)
         self._model = model
         self._max_tokens = max_tokens
@@ -73,7 +86,7 @@ class LLMClient:
     def call(self, system: str, user: str) -> tuple[dict[str, str], dict[str, int]]:
         log.info("LLM call: model=%s", self._model)
 
-        def _do_call() -> object:
+        def _do_call() -> Any:
             return self._client.messages.create(
                 model=self._model,
                 max_tokens=self._max_tokens,
@@ -85,38 +98,49 @@ class LLMClient:
         text = "".join(
             block.text for block in response.content if hasattr(block, "text")
         )
+        if not text.strip():
+            raise ValueError(f"LLM returned empty content (model={self._model})")
         sections = _parse_sections(text)
         tokens = {
             "input": response.usage.input_tokens,
             "output": response.usage.output_tokens,
         }
-        log.info("LLM response: model=%s input=%d output=%d", self._model, tokens["input"], tokens["output"])
+        log.info(
+            "LLM response: model=%s input=%d output=%d",
+            self._model,
+            tokens["input"],
+            tokens["output"],
+        )
         return sections, tokens
 
     def call_with_tools(
         self,
         system: str,
         user: str,
-        tools: list[dict],
-        tool_handler: Callable[[str, dict], str],
+        tools: list[dict[str, Any]],
+        tool_handler: Callable[[str, dict[str, Any]], str],
         max_rounds: int = 5,
     ) -> tuple[dict[str, str], dict[str, int]]:
-        log.info("LLM call_with_tools: model=%s tools=%s", self._model, [t["name"] for t in tools])
+        log.info(
+            "LLM call_with_tools: model=%s tools=%s",
+            self._model,
+            [t["name"] for t in tools],
+        )
 
-        messages = [{"role": "user", "content": user}]
+        messages: list[Any] = [{"role": "user", "content": user}]
         total_input = 0
         total_output = 0
 
         for round_num in range(max_rounds):
             log.debug("Tool round %d/%d", round_num + 1, max_rounds)
 
-            def _do_call() -> object:
+            def _do_call() -> Any:
                 return self._client.messages.create(
                     model=self._model,
                     max_tokens=self._max_tokens,
                     system=system,
                     messages=messages,
-                    tools=tools,
+                    tools=cast(Any, tools),
                 )
 
             response = _retry_call(_do_call)
@@ -127,9 +151,19 @@ class LLMClient:
                 text = "".join(
                     block.text for block in response.content if hasattr(block, "text")
                 )
+                if not text.strip():
+                    raise ValueError(
+                        f"LLM returned empty content (model={self._model})"
+                    )
                 sections = _parse_sections(text)
                 tokens = {"input": total_input, "output": total_output}
-                log.info("LLM done: model=%s input=%d output=%d rounds=%d", self._model, total_input, total_output, round_num + 1)
+                log.info(
+                    "LLM done: model=%s input=%d output=%d rounds=%d",
+                    self._model,
+                    total_input,
+                    total_output,
+                    round_num + 1,
+                )
                 return sections, tokens
 
             tool_results = []
@@ -138,19 +172,32 @@ class LLMClient:
                     log.info("Tool call: %s(%s)", block.name, block.input)
                     result = tool_handler(block.name, block.input)
                     log.debug("Tool result length: %d chars", len(result))
-                    tool_results.append({
-                        "type": "tool_result",
-                        "tool_use_id": block.id,
-                        "content": result,
-                    })
+                    tool_results.append(
+                        {
+                            "type": "tool_result",
+                            "tool_use_id": block.id,
+                            "content": result,
+                        }
+                    )
 
             messages.append({"role": "assistant", "content": response.content})
             messages.append({"role": "user", "content": tool_results})
 
-        log.warning("LLM tool loop exhausted after %d rounds, forcing final response", max_rounds)
-        messages.append({"role": "user", "content": "Stop using tools. Write the final report now based on everything you've gathered."})
+        log.warning(
+            "LLM tool loop exhausted after %d rounds, forcing final response",
+            max_rounds,
+        )
+        messages.append(
+            {
+                "role": "user",
+                "content": (
+                    "Stop using tools. Write the final report now based on "
+                    "everything you've gathered."
+                ),
+            }
+        )
 
-        def _do_final() -> object:
+        def _do_final() -> Any:
             return self._client.messages.create(
                 model=self._model,
                 max_tokens=self._max_tokens,
@@ -165,4 +212,6 @@ class LLMClient:
         text = "".join(
             block.text for block in final_response.content if hasattr(block, "text")
         )
+        if not text.strip():
+            raise ValueError(f"LLM returned empty content (model={self._model})")
         return _parse_sections(text), {"input": total_input, "output": total_output}
