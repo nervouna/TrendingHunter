@@ -6,19 +6,22 @@ from pathlib import Path
 import yaml
 
 from trending_hunter.models import Project, Report, Source
+from trending_hunter.utils import sections_to_text
+
+__all__ = [
+    "build_expected_filename",
+    "get_report_path",
+    "render_report",
+    "report_exists",
+    "save_report",
+    "sections_to_text",
+]
 
 _SOURCE_LABELS: dict[Source, tuple[str, str]] = {
     Source.GITHUB: ("Stars", "stars/day"),
     Source.HACKER_NEWS: ("Score", "score/day"),
     Source.PRODUCT_HUNT: ("Votes", "votes/day"),
 }
-
-
-def sections_to_text(sections: dict[str, str]) -> str:
-    parts: list[str] = []
-    for name, content in sections.items():
-        parts.append(f"## {name}\n{content}")
-    return "\n\n".join(parts)
 
 
 def render_report(report: Report) -> str:
@@ -32,7 +35,10 @@ def render_report(report: Report) -> str:
     lines.append(f"**URL**: {report.project.url}")
     lines.append(f"**{count_label}**: {report.project.stars}")
     lines.append(f"**Velocity**: {report.project.star_velocity:.1f} {velocity_label}")
-    if report.project.source == Source.GITHUB and report.project.repo_age_days is not None:
+    if (
+        report.project.source == Source.GITHUB
+        and report.project.repo_age_days is not None
+    ):
         lines.append(f"**Age**: {report.project.repo_age_days} days")
     lines.append(f"**Generated**: {report.generated_at.isoformat()}")
     lines.append(f"**Draft model**: {report.draft_model}")
@@ -56,13 +62,17 @@ def build_expected_filename(project: Project, date_str: str) -> str:
     return f"{date_str}-{source}-{name}.md"
 
 
-def get_report_path(project: Project, base_dir: str, date_obj: date | None = None) -> Path:
+def get_report_path(
+    project: Project, base_dir: str, date_obj: date | None = None
+) -> Path:
     d = date_obj or datetime.now().date()
     filename = build_expected_filename(project, d.isoformat())
     return Path(base_dir).expanduser() / filename
 
 
-def report_exists(project: Project, base_dir: str, date_obj: date | None = None) -> bool:
+def report_exists(
+    project: Project, base_dir: str, date_obj: date | None = None
+) -> bool:
     return get_report_path(project, base_dir, date_obj).exists()
 
 
@@ -81,10 +91,21 @@ def _build_frontmatter(report: Report) -> str:
         "trending_source": report.project.source.value,
         "tags": ["trending", report.project.source.value],
     }
-    return "---\n" + yaml.dump(fm, allow_unicode=True, default_flow_style=False, sort_keys=False) + "---\n"
+    return (
+        "---\n"
+        + yaml.dump(fm, allow_unicode=True, default_flow_style=False, sort_keys=False)
+        + "---\n"
+    )
 
 
-def save_report(report: Report, base_dir: str = "./reports") -> Path:
+def save_report(
+    report: Report, base_dir: str = "./reports", output: str = "file"
+) -> Path:
+    if output == "stdout":
+        body = render_report(report)
+        print(body)
+        return Path()
+
     dir_path = Path(base_dir).expanduser()
     dir_path.mkdir(parents=True, exist_ok=True)
 

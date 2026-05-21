@@ -1,15 +1,18 @@
 from datetime import date
+from pathlib import Path
 
+import pytest
+import yaml
+
+from trending_hunter.cost import estimate_cost, format_cost_report
 from trending_hunter.models import Project, Report, Source, TokenUsage
+from trending_hunter.settings import ModelPricing
 from trending_hunter.writer import (
     build_expected_filename,
     render_report,
     report_exists,
     save_report,
-    sections_to_text,
 )
-from trending_hunter.cost import estimate_cost, format_cost_report
-from trending_hunter.settings import ModelPricing
 
 
 def _sample_report() -> Report:
@@ -65,43 +68,68 @@ def test_render_report_has_metadata():
     assert "**Rewrite model**:" in text
 
 
-def test_render_report_github_labels():
-    report = _sample_report()
-    text = render_report(report)
-    assert "**Stars**: 500" in text
-    assert "stars/day" in text
-
-
-def test_render_report_hackernews_labels():
+@pytest.mark.parametrize(
+    "source, name, url, stars, count_label, velocity_label, has_age, repo_age_days",
+    [
+        (
+            Source.GITHUB,
+            "owner/repo",
+            "https://github.com/owner/repo",
+            500,
+            "Stars",
+            "stars/day",
+            True,
+            30,
+        ),
+        (
+            Source.HACKER_NEWS,
+            "Some HN Story",
+            "https://example.com/story",
+            197,
+            "Score",
+            "score/day",
+            False,
+            None,
+        ),
+        (
+            Source.PRODUCT_HUNT,
+            "Cool Tool",
+            "https://www.producthunt.com/posts/cool-tool",
+            450,
+            "Votes",
+            "votes/day",
+            False,
+            None,
+        ),
+    ],
+    ids=["github", "hackernews", "producthunt"],
+)
+def test_render_report_source_labels(
+    source, name, url, stars, count_label, velocity_label, has_age, repo_age_days
+):
     p = Project(
-        name="Some HN Story",
-        source=Source.HACKER_NEWS,
-        url="https://example.com/story",
-        stars=197,
-        star_velocity=2111.6,
-        description="A story",
-    )
-    report = Report(project=p, draft_model="m", audit_model="m", sections={"TL;DR": "test"}, file_path="")
-    text = render_report(report)
-    assert "**Score**: 197" in text
-    assert "score/day" in text
-    assert "**Age**" not in text
-
-
-def test_render_report_producthunt_labels():
-    p = Project(
-        name="Cool Tool",
-        source=Source.PRODUCT_HUNT,
-        url="https://www.producthunt.com/posts/cool-tool",
-        stars=450,
+        name=name,
+        source=source,
+        url=url,
+        stars=stars,
         star_velocity=100.0,
-        description="A tool",
+        repo_age_days=repo_age_days,
+        description="A project",
     )
-    report = Report(project=p, draft_model="m", audit_model="m", sections={"TL;DR": "test"}, file_path="")
+    report = Report(
+        project=p,
+        draft_model="m",
+        audit_model="m",
+        sections={"TL;DR": "test"},
+        file_path="",
+    )
     text = render_report(report)
-    assert "**Votes**: 450" in text
-    assert "votes/day" in text
-    assert "**Age**" not in text
+    assert f"**{count_label}**: {stars}" in text
+    assert velocity_label in text
+    if has_age:
+        assert "**Age**" in text
+    else:
+        assert "**Age**" not in text
 
 
 def test_save_report_creates_file(tmp_path):
@@ -141,14 +169,6 @@ def test_format_cost_report():
     assert "draft: 300 tokens" in text
     assert "audit: 500 tokens" in text
     assert "total: 800 tokens" in text
-
-
-def test_sections_to_text():
-    sections = {"TL;DR": "Summary.", "What & Why": "Details."}
-    text = sections_to_text(sections)
-    assert "## TL;DR" in text
-    assert "## What & Why" in text
-    assert "Summary." in text
 
 
 def test_build_expected_filename():
@@ -192,9 +212,6 @@ def test_report_exists_false(tmp_path):
     assert report_exists(p, str(tmp_path), today) is False
 
 
-import yaml
-
-
 def test_save_report_has_frontmatter(tmp_path):
     report = _sample_report()
     path = save_report(report, str(tmp_path))
@@ -215,3 +232,20 @@ def test_save_report_has_frontmatter(tmp_path):
     # Body should not start with H1 (render_report skips it)
     body = parts[2].strip()
     assert not body.startswith("# owner/repo")
+
+
+def test_save_report_stdout(capsys):
+    report = _sample_report()
+    path = save_report(report, output="stdout")
+    assert path == Path()
+    captured = capsys.readouterr()
+    assert "TL;DR" in captured.out
+    assert "owner/repo" in captured.out
+    assert "500" in captured.out
+
+
+def test_save_report_default_is_file(tmp_path):
+    report = _sample_report()
+    path = save_report(report, base_dir=str(tmp_path))
+    assert path.exists()
+    assert path.name.endswith(".md")
