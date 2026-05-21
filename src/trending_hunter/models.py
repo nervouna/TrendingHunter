@@ -26,6 +26,7 @@ class Project(BaseModel):
         if not self.normalized_url:
             self.normalized_url = normalize_url(self.url)
         return self
+
     stars: int
     star_velocity: float
     repo_age_days: int | None = None
@@ -45,10 +46,12 @@ class Report(BaseModel):
     draft_model: str
     audit_model: str
     rewrite_model: str = ""
-    token_usage: dict[str, TokenUsage] = Field(default_factory=lambda: {
-        "draft": TokenUsage(),
-        "audit": TokenUsage(),
-        "rewrite": TokenUsage(),
-    })
+    token_usage: dict[str, TokenUsage] = Field(
+        default_factory=lambda: {
+            "draft": TokenUsage(),
+            "audit": TokenUsage(),
+            "rewrite": TokenUsage(),
+        }
+    )
     sections: dict[str, str]
     file_path: str
