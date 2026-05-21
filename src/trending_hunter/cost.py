@@ -3,7 +3,6 @@ from __future__ import annotations
 from trending_hunter.models import TokenUsage
 from trending_hunter.settings import ModelPricing
 
-
 _DEFAULT_PRICING = ModelPricing(input_per_million=3.00, output_per_million=15.00)
 
 
@@ -17,7 +16,10 @@ def estimate_cost(
         p = pricing[model]
     else:
         p = _DEFAULT_PRICING
-    return input_tokens * p.input_per_million / 1_000_000 + output_tokens * p.output_per_million / 1_000_000
+    return (
+        input_tokens * p.input_per_million / 1_000_000
+        + output_tokens * p.output_per_million / 1_000_000
+    )
 
 
 def format_cost_report(token_usage: dict[str, TokenUsage]) -> str:
