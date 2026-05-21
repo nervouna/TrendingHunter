@@ -1,7 +1,7 @@
 sources:
   github:
     enabled: true
-    languages: []
+    language: ""
     since: "daily"
   product_hunt:
     enabled: true

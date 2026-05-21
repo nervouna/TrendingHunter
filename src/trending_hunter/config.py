@@ -3,7 +3,9 @@ from __future__ import annotations
 import os
 import re
 from pathlib import Path
+from typing import Any, cast
 
+import click
 import yaml
 
 from trending_hunter.settings import Settings
@@ -32,23 +34,86 @@ def _load_dotenv(path: str | Path = ".env") -> None:
 
 
 def _resolve_env_vars(value: str) -> str:
-    def replace(match: re.Match) -> str:
+    def replace(match: re.Match[str]) -> str:
         var_name = match.group(1)
         return os.environ.get(var_name, match.group(0))
 
     return re.sub(r"\$\{(\w+)\}", replace, value)
 
 
-def _apply_env_overrides(cfg: dict, prefix: str = "TH_") -> dict:
+def _coerce_value(value: str, default: object) -> object:
+    if isinstance(default, bool):
+        return value.lower() in ("true", "1", "yes")
+    if isinstance(default, int):
+        return int(value)
+    if isinstance(default, float):
+        return float(value)
+    return value
+
+
+def _env_key_to_path(key: str) -> list[str]:
+    parts = key.lower().split("_")
+    path: list[str] = []
+    model: Any = Settings
+    index = 0
+
+    while index < len(parts):
+        fields = getattr(model, "model_fields", None)
+        if not fields:
+            path.extend(parts[index:])
+            break
+
+        match = None
+        for end in range(len(parts), index, -1):
+            candidate = "_".join(parts[index:end])
+            if candidate in fields:
+                match = candidate
+                index = end
+                break
+
+        if match is None:
+            path.extend(parts[index:])
+            break
+
+        path.append(match)
+        annotation = fields[match].annotation
+        model = annotation if hasattr(annotation, "model_fields") else object()
+
+    return path
+
+
+def _apply_env_overrides(
+    cfg: dict[str, Any],
+    prefix: str = "TH_",
+) -> dict[str, Any]:
     for key, value in os.environ.items():
         if not key.startswith(prefix):
             continue
-        path = key[len(prefix):].lower().split("_")
-        node = cfg
+        path = _env_key_to_path(key[len(prefix) :])
+        node: dict[str, Any] = cfg
         for part in path[:-1]:
             node = node.setdefault(part, {})
-        node[path[-1]] = value
+        existing = node.get(path[-1])
+        default = _get_model_default(path, existing)
+        node[path[-1]] = _coerce_value(value, default) if default is not None else value
     return cfg
+
+
+def _get_model_default(path: list[str], fallback: object) -> object | None:
+    from trending_hunter.settings import Settings
+
+    try:
+        model: Any = Settings
+        for part in path:
+            field = model.model_fields[part]
+            annotation = field.annotation
+            if hasattr(annotation, "model_fields"):
+                model = annotation
+            else:
+                return field.default if field.default is not None else fallback
+        return fallback
+    except (KeyError, AttributeError):
+        return fallback
 
 
 def _deep_resolve(obj: object) -> object:
@@ -63,9 +128,12 @@ def _deep_resolve(obj: object) -> object:
 
 def load_config(path: str | Path = "config.yaml") -> Settings:
     _load_dotenv()
-    with open(path, encoding="utf-8") as f:
-        raw = f.read()
-    cfg = yaml.safe_load(raw)
+    try:
+        with open(path, encoding="utf-8") as f:
+            raw = f.read()
+    except FileNotFoundError:
+        raise click.ClickException(f"Config file not found: {path}")
+    cfg = cast(dict[str, Any], yaml.safe_load(raw))
     cfg = _apply_env_overrides(cfg)
-    cfg = _deep_resolve(cfg)
+    cfg = cast(dict[str, Any], _deep_resolve(cfg))
     return Settings.model_validate(cfg)

@@ -30,6 +30,9 @@ class SignalGateConfig(BaseModel):
     min_star_velocity: float = 10.0
     max_repo_age_days: int = 365
     min_first_time_contributors: int = 0
+    github_min_star_velocity: float | None = None
+    hacker_news_min_star_velocity: float | None = None
+    product_hunt_min_star_velocity: float | None = None
 
 
 class LLMStageConfig(BaseModel):
