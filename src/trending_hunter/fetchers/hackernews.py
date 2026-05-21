@@ -2,30 +2,30 @@ from __future__ import annotations
 
 import concurrent.futures
 from datetime import datetime, timezone
+from typing import Any, cast
 
 import httpx
 
-from trending_hunter.fetchers import daily_velocity
 from trending_hunter.models import Project, Source
+from trending_hunter.settings import Settings
+from trending_hunter.utils import daily_velocity
 
 _HN_API = "https://hacker-news.firebaseio.com/v0"
 _USER_AGENT = "TrendingHunter/0.1"
 
 
-def _fetch_json(path: str, proxy: str | None = None) -> object:
-    client_kwargs: dict[str, object] = {
-        "headers": {"User-Agent": _USER_AGENT},
-        "timeout": 15,
-    }
-    if proxy:
-        client_kwargs["proxy"] = proxy
-    with httpx.Client(**client_kwargs) as client:
+def _fetch_json(path: str, proxy: str | None = None) -> Any:
+    with httpx.Client(
+        headers={"User-Agent": _USER_AGENT},
+        timeout=15,
+        proxy=proxy,
+    ) as client:
         resp = client.get(f"{_HN_API}/{path}")
         resp.raise_for_status()
     return resp.json()
 
 
-def _parse_hn_item(item: dict) -> Project | None:
+def _parse_hn_item(item: dict[str, Any]) -> Project | None:
     if item.get("type") != "story":
         return None
     if item.get("deleted") or item.get("dead"):
@@ -60,7 +60,7 @@ def fetch_hackernews(
     top_n: int = 30,
     proxy: str | None = None,
 ) -> list[Project]:
-    story_ids: list[int] = _fetch_json("topstories.json", proxy=proxy)  # type: ignore[assignment]
+    story_ids = cast(list[int], _fetch_json("topstories.json", proxy=proxy))
     story_ids = story_ids[:top_n]
 
     projects: list[Project] = []
@@ -68,8 +68,11 @@ def fetch_hackernews(
         return projects
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
-        def _fetch_item(story_id: int) -> object:
-            return _fetch_json(f"item/{story_id}.json", proxy=proxy)
+
+        def _fetch_item(story_id: int) -> dict[str, Any]:
+            return cast(
+                dict[str, Any], _fetch_json(f"item/{story_id}.json", proxy=proxy)
+            )
 
         try:
             items = list(executor.map(_fetch_item, story_ids))
@@ -82,3 +85,11 @@ def fetch_hackernews(
             projects.append(project)
 
     return projects
+
+
+class HackerNewsFetcher:
+    def fetch(self, settings: Settings) -> list[Project]:
+        return fetch_hackernews(
+            top_n=settings.sources.hacker_news.top_n,
+            proxy=settings.proxy or None,
+        )

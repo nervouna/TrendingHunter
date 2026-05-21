@@ -1,11 +1,13 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime
+from typing import Any, cast
 
 import httpx
 
-from trending_hunter.fetchers import daily_velocity
 from trending_hunter.models import Project, Source
+from trending_hunter.settings import Settings
+from trending_hunter.utils import daily_velocity
 
 _PH_API = "https://api.producthunt.com/v2/api/graphql"
 
@@ -29,26 +31,24 @@ query($first: Int) {
 
 def _ph_graphql(
     query: str,
-    variables: dict,
+    variables: dict[str, Any],
     token: str,
     proxy: str | None = None,
-) -> dict:
-    client_kwargs: dict[str, object] = {
-        "headers": {
+) -> dict[str, Any]:
+    with httpx.Client(
+        headers={
             "Authorization": f"Bearer {token}",
             "Content-Type": "application/json",
         },
-        "timeout": 15,
-    }
-    if proxy:
-        client_kwargs["proxy"] = proxy
-    with httpx.Client(**client_kwargs) as client:
+        timeout=15,
+        proxy=proxy,
+    ) as client:
         resp = client.post(_PH_API, json={"query": query, "variables": variables})
         resp.raise_for_status()
-    return resp.json()
+    return cast(dict[str, Any], resp.json())
 
 
-def _parse_ph_post(post: dict) -> Project | None:
+def _parse_ph_post(post: dict[str, Any]) -> Project | None:
     name = post.get("name")
     if not name:
         return None
@@ -90,3 +90,12 @@ def fetch_producthunt(
         if project is not None:
             projects.append(project)
     return projects
+
+
+class ProductHuntFetcher:
+    def fetch(self, settings: Settings) -> list[Project]:
+        return fetch_producthunt(
+            token=settings.sources.product_hunt.token,
+            top_n=settings.sources.product_hunt.top_n,
+            proxy=settings.proxy or None,
+        )

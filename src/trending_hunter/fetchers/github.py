@@ -5,6 +5,7 @@ import re
 import httpx
 
 from trending_hunter.models import Project, Source
+from trending_hunter.settings import Settings
 
 _TRENDING_URL = "https://github.com/trending"
 _USER_AGENT = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
@@ -70,12 +71,22 @@ def fetch_trending(
     params = {"since": since}
 
     headers = {"User-Agent": _USER_AGENT, "Accept": "text/html"}
-    client_kwargs: dict[str, object] = {"headers": headers, "follow_redirects": True, "timeout": 15}
-    if proxy:
-        client_kwargs["proxy"] = proxy
-
-    with httpx.Client(**client_kwargs) as client:
+    with httpx.Client(
+        headers=headers,
+        follow_redirects=True,
+        timeout=15,
+        proxy=proxy,
+    ) as client:
         resp = client.get(url, params=params)
         resp.raise_for_status()
 
     return parse_trending_html(resp.text)
+
+
+class GitHubFetcher:
+    def fetch(self, settings: Settings) -> list[Project]:
+        return fetch_trending(
+            language=settings.sources.github.language,
+            since=settings.sources.github.since,
+            proxy=settings.proxy or None,
+        )
