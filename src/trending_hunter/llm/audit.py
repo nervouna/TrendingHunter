@@ -6,13 +6,14 @@ from typing import Any
 
 from trending_hunter.llm.client import LLMClient
 from trending_hunter.llm.prompts import (
+    AUDIT_HN_HEADLINE_HINT,
     AUDIT_SYSTEM,
     AUDIT_USER,
     TAVILY_TOOLS,
     get_language_modifier,
 )
 from trending_hunter.llm.tools import tavily_extract, tavily_search
-from trending_hunter.models import Project
+from trending_hunter.models import Project, Source
 from trending_hunter.utils import sections_to_text
 
 
@@ -45,7 +46,10 @@ def audit_report(
         current_date=datetime.now().isoformat(),
     )
 
-    system = AUDIT_SYSTEM + get_language_modifier(language)
+    system = AUDIT_SYSTEM
+    if project.source == Source.HACKER_NEWS:
+        system += AUDIT_HN_HEADLINE_HINT
+    system += get_language_modifier(language)
 
     if tavily_key:
         handler = _make_tool_handler(tavily_key)

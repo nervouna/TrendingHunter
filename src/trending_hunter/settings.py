@@ -41,6 +41,7 @@ class LLMStageConfig(BaseModel):
     model: str = ""
     max_tokens: int = 4096
     timeout: float = 120.0
+    max_tool_rounds: int = 8
 
 
 class LLMConfig(BaseModel):

@@ -21,7 +21,7 @@ def _get_client() -> httpx.Client:
     if _client is None:
         with _client_lock:
             if _client is None:
-                _client = httpx.Client()
+                _client = httpx.Client(trust_env=False)
     return _client
 
 

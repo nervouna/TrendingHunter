@@ -12,7 +12,7 @@ from trending_hunter.llm.draft import generate_draft
 from trending_hunter.llm.rewrite import rewrite_report
 from trending_hunter.llm.tools import clear_cache
 from trending_hunter.log import get_logger
-from trending_hunter.models import Project, Report, TokenUsage
+from trending_hunter.models import LLM_STAGES, Project, Report, TokenUsage
 from trending_hunter.settings import Settings
 from trending_hunter.writer import get_report_path, save_report
 
@@ -41,27 +41,9 @@ def run_pipeline(
 ) -> list[PipelineResult]:
     clear_cache()
     tavily_key = settings.tavily.api_key or None
-    draft_client = LLMClient(
-        api_key=settings.llm.draft.api_key,
-        model=settings.llm.draft.model,
-        max_tokens=settings.llm.draft.max_tokens,
-        base_url=settings.llm.draft.base_url or None,
-        timeout=settings.llm.draft.timeout,
-    )
-    audit_client = LLMClient(
-        api_key=settings.llm.audit.api_key,
-        model=settings.llm.audit.model,
-        max_tokens=settings.llm.audit.max_tokens,
-        base_url=settings.llm.audit.base_url or None,
-        timeout=settings.llm.audit.timeout,
-    )
-    rewrite_client = LLMClient(
-        api_key=settings.llm.rewrite.api_key,
-        model=settings.llm.rewrite.model,
-        max_tokens=settings.llm.rewrite.max_tokens,
-        base_url=settings.llm.rewrite.base_url or None,
-        timeout=settings.llm.rewrite.timeout,
-    )
+    draft_client = LLMClient.from_stage_config(settings.llm.draft)
+    audit_client = LLMClient.from_stage_config(settings.llm.audit)
+    rewrite_client = LLMClient.from_stage_config(settings.llm.rewrite)
     kb_path = settings.knowledge_base.path
     pricing = settings.model_pricing or None
     run_id = uuid.uuid4().hex[:8]
@@ -156,12 +138,13 @@ def run_pipeline(
                 path = save_report(report, base_dir=kb_path)
 
                 cost = sum(
-                    estimate_cost(model, t.input_tokens, t.output_tokens, pricing)
-                    for model, t in (
-                        (settings.llm.draft.model, token_usage["draft"]),
-                        (settings.llm.audit.model, token_usage["audit"]),
-                        (settings.llm.rewrite.model, token_usage["rewrite"]),
+                    estimate_cost(
+                        stage,
+                        token_usage[stage].input_tokens,
+                        token_usage[stage].output_tokens,
+                        pricing,
                     )
+                    for stage in LLM_STAGES
                 )
                 duration = time.perf_counter() - project_started
 

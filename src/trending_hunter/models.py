@@ -5,7 +5,18 @@ from enum import Enum
 
 from pydantic import BaseModel, Field, model_validator
 
-from trending_hunter.utils import normalize_url
+from trending_hunter.utils import normalize_url, sections_to_text
+
+LLM_STAGES = ("draft", "audit", "rewrite")
+
+__all__ = [
+    "LLM_STAGES",
+    "Project",
+    "Report",
+    "Source",
+    "TokenUsage",
+    "sections_to_text",
+]
 
 
 class Source(str, Enum):
@@ -34,7 +45,6 @@ class Project(BaseModel):
     description: str
     readme_excerpt: str = ""
 
-
 class TokenUsage(BaseModel):
     input_tokens: int = 0
     output_tokens: int = 0
@@ -47,11 +57,7 @@ class Report(BaseModel):
     audit_model: str
     rewrite_model: str = ""
     token_usage: dict[str, TokenUsage] = Field(
-        default_factory=lambda: {
-            "draft": TokenUsage(),
-            "audit": TokenUsage(),
-            "rewrite": TokenUsage(),
-        }
+        default_factory=lambda: {stage: TokenUsage() for stage in LLM_STAGES}
     )
     sections: dict[str, str]
     file_path: str

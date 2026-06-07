@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from typing import Any
 
 import httpx
 
@@ -71,12 +72,16 @@ def fetch_trending(
     params = {"since": since}
 
     headers = {"User-Agent": _USER_AGENT, "Accept": "text/html"}
-    with httpx.Client(
-        headers=headers,
-        follow_redirects=True,
-        timeout=15,
-        proxy=proxy,
-    ) as client:
+    client_kwargs: dict[str, Any] = {
+        "headers": headers,
+        "follow_redirects": True,
+        "timeout": 15,
+        "trust_env": False,
+    }
+    if proxy:
+        client_kwargs["proxy"] = proxy
+
+    with httpx.Client(**client_kwargs) as client:
         resp = client.get(url, params=params)
         resp.raise_for_status()
 

@@ -82,20 +82,28 @@ def _env_key_to_path(key: str) -> list[str]:
     return path
 
 
+def _set_config_value(cfg: dict[str, Any], path: list[str], value: str) -> None:
+    node: dict[str, Any] = cfg
+    for part in path[:-1]:
+        node = node.setdefault(part, {})
+    existing = node.get(path[-1])
+    default = _get_model_default(path, existing)
+    node[path[-1]] = _coerce_value(value, default) if default is not None else value
+
+
 def _apply_env_overrides(
     cfg: dict[str, Any],
-    prefix: str = "TH_",
 ) -> dict[str, Any]:
     for key, value in os.environ.items():
-        if not key.startswith(prefix):
+        if not key.startswith("TH_") or key.startswith("TH__"):
             continue
-        path = _env_key_to_path(key[len(prefix) :])
-        node: dict[str, Any] = cfg
-        for part in path[:-1]:
-            node = node.setdefault(part, {})
-        existing = node.get(path[-1])
-        default = _get_model_default(path, existing)
-        node[path[-1]] = _coerce_value(value, default) if default is not None else value
+        _set_config_value(cfg, _env_key_to_path(key[3:]), value)
+
+    for key, value in os.environ.items():
+        if not key.startswith("TH__"):
+            continue
+        _set_config_value(cfg, key[4:].lower().split("__"), value)
+
     return cfg
 
 

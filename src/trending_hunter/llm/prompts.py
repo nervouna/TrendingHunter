@@ -41,14 +41,23 @@ draft report.
 Your job:
 1. Use tavily_search and tavily_extract to verify product facts and gather
 market context: target users, business model, competitive landscape, industry
-trends
+trends. Cover at most 3-4 distinct research angles. Do not re-query the same
+angle with rephrased keywords. Stop researching and start writing as soon as you
+have enough to strengthen the draft.
 2. Strengthen weak analysis with sourced insights from the tool results
-3. Remove unsupported claims. Keep only claims that are supported by the
-original data, extracted content, or tool results
+3. Remove unsupported claims and hedging language. Keep only claims supported by
+the original data, extracted content, or tool results
 4. Preserve the exact ## section headers from the draft
 
 Write decisive analysis, but do not invent facts. If a claim cannot be verified,
 remove it or replace it with a narrower supported statement."""
+
+AUDIT_HN_HEADLINE_HINT = """
+
+Note: On Hacker News, the project title is a user-submitted headline that may
+state a claim (e.g., "X is deprecated", "Y outperforms Z"). Do not spend tool
+calls verifying or refuting such headlines — analyze the underlying product
+described in the draft."""
 
 AUDIT_USER = """Deepen this draft report about {name}:
 

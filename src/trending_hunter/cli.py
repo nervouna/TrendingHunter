@@ -4,7 +4,7 @@ import signal
 import threading
 import time
 from collections.abc import Callable
-from typing import TypeVar
+from typing import Any, TypeVar
 
 import click
 
@@ -16,7 +16,7 @@ from trending_hunter.fetchers.hackernews import HackerNewsFetcher
 from trending_hunter.fetchers.producthunt import ProductHuntFetcher
 from trending_hunter.gate import filter_projects
 from trending_hunter.log import get_logger, setup_logging
-from trending_hunter.models import Source
+from trending_hunter.models import LLM_STAGES, Source
 from trending_hunter.pipeline import run_pipeline
 from trending_hunter.search import search_reports
 from trending_hunter.settings import Settings
@@ -115,7 +115,7 @@ def run_cycle(
         elif result.status == "skipped":
             click.echo(f"  SKIPPED: {result.file_path} (already exists)")
         else:
-            for stage in ("draft", "audit", "rewrite"):
+            for stage in LLM_STAGES:
                 tokens = result.token_usage.get(stage)
                 if tokens:
                     token_summary = (
@@ -276,3 +276,79 @@ def search(
     for filename, excerpt in results:
         click.echo(f"\n  {filename}")
         click.echo(f"    {excerpt}...")
+
+
+def _check_llm_provider(
+    stage_name: str, stage_cfg: Any, model_pricing: dict[str, Any]
+) -> tuple[bool, str, str]:
+    missing = []
+    if not stage_cfg.base_url:
+        missing.append("base_url")
+    if not stage_cfg.api_key:
+        missing.append("api_key")
+    if not stage_cfg.model:
+        missing.append("model")
+    ok = not missing
+    reason = ", ".join(f"missing {f}" for f in missing)
+    pricing = model_pricing.get(stage_name)
+    if pricing:
+        pricing_str = (
+            f"${pricing.input_per_million}/{pricing.output_per_million} per 1M"
+        )
+    else:
+        pricing_str = "pricing not set"
+    return ok, reason, pricing_str
+
+
+@cli.command()
+@click.option(
+    "--config", "config_path", default="config.yaml", help="Path to config file."
+)
+def doctor(config_path: str) -> None:
+    try:
+        settings: Settings = load_config(config_path)
+    except Exception as exc:
+        click.echo(f"Failed to load config: {exc}")
+        return
+
+    from pathlib import Path
+
+    click.echo(f"Knowledge base: {Path(settings.knowledge_base.path).resolve()}")
+    click.echo(f"Config: {Path(config_path).resolve()}")
+    click.echo()
+
+    stage_lines = []
+    all_ok = True
+    for stage in LLM_STAGES:
+        cfg = getattr(settings.llm, stage)
+        name = stage.title()
+        ok, reason, pricing_str = _check_llm_provider(
+            stage, cfg, settings.model_pricing
+        )
+        if not ok:
+            all_ok = False
+        if ok:
+            icon = click.style("✔", fg="green")
+            stage_lines.append(f"  {icon} {name} provider  {pricing_str}")
+        else:
+            icon = click.style("✖", fg="red")
+            stage_lines.append(f"  {icon} {name} provider: {reason}")
+
+    llm_icon = click.style("✔", fg="green") if all_ok else click.style("✖", fg="red")
+    click.echo(f"{llm_icon} LLM Config")
+    for line in stage_lines:
+        click.echo(line)
+
+    click.echo()
+
+    tavily_ok = bool(settings.tavily.api_key)
+    tavily_icon = (
+        click.style("✔", fg="green") if tavily_ok else click.style("✖", fg="red")
+    )
+    tavily_msg = "" if tavily_ok else ": api_key not set"
+    click.echo(f"{tavily_icon} Tavily API Key{tavily_msg}")
+
+    ph_ok = bool(settings.sources.product_hunt.token)
+    ph_icon = click.style("✔", fg="green") if ph_ok else click.style("✖", fg="red")
+    ph_msg = "" if ph_ok else ": token not set"
+    click.echo(f"{ph_icon} Product API Token{ph_msg}")

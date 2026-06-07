@@ -14,6 +14,7 @@ from trending_hunter.llm.audit import audit_report
 from trending_hunter.llm.client import LLMClient
 from trending_hunter.llm.draft import generate_draft
 from trending_hunter.llm.rewrite import rewrite_report
+from trending_hunter.models import Project, Source
 
 
 def test_generate_draft_returns_sections():
@@ -93,6 +94,35 @@ def test_audit_report_returns_sections():
     assert set(sections.keys()) == set(SECTION_NAMES)
     assert tokens["input"] == 150
     client.call_with_tools.assert_called_once()
+
+
+def test_audit_report_hn_source_includes_headline_hint():
+    client = MagicMock(spec=LLMClient)
+    client.call_with_tools.return_value = (_mock_sections(), {"input": 1, "output": 1})
+
+    hn_project = Project(
+        name="Pgbackrest is no longer being maintained",
+        source=Source.HACKER_NEWS,
+        url="https://news.ycombinator.com/item?id=123",
+        stars=0,
+        star_velocity=0.0,
+        description="HN discussion",
+    )
+
+    audit_report(_mock_sections(), hn_project, client, tavily_key="fake")
+
+    system_arg = client.call_with_tools.call_args[0][0]
+    assert "headline" in system_arg.lower()
+
+
+def test_audit_report_non_hn_source_no_headline_hint():
+    client = MagicMock(spec=LLMClient)
+    client.call_with_tools.return_value = (_mock_sections(), {"input": 1, "output": 1})
+
+    audit_report(_mock_sections(), _sample_project(), client, tavily_key="fake")
+
+    system_arg = client.call_with_tools.call_args[0][0]
+    assert "headline" not in system_arg.lower()
 
 
 def test_llm_client_calls_anthropic():
@@ -236,6 +266,47 @@ def test_call_with_tools_max_rounds_exhausted():
 
     assert "TL;DR" in sections
     assert handler.call_count == 2
+
+
+def test_call_with_tools_uses_client_max_tool_rounds_default():
+    mock_response = MagicMock()
+    tool_block = MagicMock()
+    tool_block.type = "tool_use"
+    tool_block.name = "tavily_search"
+    tool_block.input = {"query": "q"}
+    tool_block.id = "t-1"
+    mock_response.content = [tool_block]
+    mock_response.stop_reason = "tool_use"
+    mock_response.usage.input_tokens = 10
+    mock_response.usage.output_tokens = 5
+
+    mock_final = MagicMock()
+    mock_final.content = [MagicMock(text="## TL;DR\nForced final.")]
+    mock_final.usage.input_tokens = 20
+    mock_final.usage.output_tokens = 10
+
+    with patch("trending_hunter.llm.client.anthropic.Anthropic") as mock_cls:
+        mock_cls.return_value.messages.create.side_effect = [
+            mock_response, mock_response, mock_response, mock_final
+        ]
+        client = LLMClient(api_key="k", model="m", max_tool_rounds=3)
+        handler = MagicMock(return_value="r")
+        sections, _ = client.call_with_tools(
+            "sys", "usr",
+            tools=[{"name": "tavily_search", "input_schema": {}}],
+            tool_handler=handler,
+        )
+
+    assert "TL;DR" in sections
+    assert handler.call_count == 3
+
+
+def test_llmclient_from_stage_config_propagates_max_tool_rounds():
+    from trending_hunter.settings import LLMStageConfig
+    cfg = LLMStageConfig(api_key="k", model="m", max_tool_rounds=12)
+    with patch("trending_hunter.llm.client.anthropic.Anthropic"):
+        client = LLMClient.from_stage_config(cfg)
+    assert client._max_tool_rounds == 12
 
 
 def test_audit_report_without_tavily():

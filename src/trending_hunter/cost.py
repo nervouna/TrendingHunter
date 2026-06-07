@@ -7,13 +7,13 @@ _DEFAULT_PRICING = ModelPricing(input_per_million=3.00, output_per_million=15.00
 
 
 def estimate_cost(
-    model: str,
+    stage: str,
     input_tokens: int,
     output_tokens: int,
     pricing: dict[str, ModelPricing] | None = None,
 ) -> float:
-    if pricing and model in pricing:
-        p = pricing[model]
+    if pricing and stage in pricing:
+        p = pricing[stage]
     else:
         p = _DEFAULT_PRICING
     return (

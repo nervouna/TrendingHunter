@@ -25,7 +25,7 @@ def test_schedule_runs_cycles(mock_sleep, mock_load, mock_run_cycle):
     )
     assert result.exit_code == 0, result.output
     assert mock_run_cycle.call_count == 3
-    assert mock_sleep.call_count == 2  # sleeps between cycles, not after last
+    assert mock_sleep.call_count == 2
 
 
 @patch("trending_hunter.cli.run_cycle")
@@ -60,7 +60,6 @@ def test_run_language_default_empty(mock_run_cycle):
 
 @patch("trending_hunter.cli.load_config")
 def test_run_cycle_unknown_source(mock_load, capsys):
-    """run_cycle with unknown source prints error and returns."""
     mock_load.return_value = MagicMock()
     run_cycle("nonexistent", "config.yaml", 0, False)
     captured = capsys.readouterr()
@@ -308,7 +307,6 @@ def test_run_cycle_with_limit(mock_load, mock_filter, patched_fetchers):
 
 @patch("trending_hunter.cli.load_config")
 def test_run_cycle_generic_exception(mock_load, capsys, patched_fetchers):
-    """Generic exception from fetcher prints friendly error."""
     settings = MagicMock()
     settings.sources.github.enabled = True
     settings.sources.github.language = ""
@@ -390,11 +388,7 @@ def test_run_cycle_product_hunt(
     assert mock_fetcher.fetch.call_args[0][0] is settings
 
 
-# Tests for _resolve_fetcher_args
-
-
 def test_resolve_fetcher_args_unknown_source():
-    """Unknown source returns None and error message."""
     settings = MagicMock()
     fetcher, error = _resolve_fetcher_args("unknown", settings)
     assert fetcher is None
@@ -402,7 +396,6 @@ def test_resolve_fetcher_args_unknown_source():
 
 
 def test_resolve_fetcher_args_disabled_source():
-    """Disabled source returns None and error message."""
     settings = MagicMock()
     settings.sources.github.enabled = False
     settings.proxy = ""
@@ -412,8 +405,6 @@ def test_resolve_fetcher_args_disabled_source():
 
 
 def test_resolve_fetcher_args_missing_config():
-    """Missing source config returns None and error message."""
-
     class NoAttrSources:
         pass
 
@@ -425,7 +416,6 @@ def test_resolve_fetcher_args_missing_config():
 
 
 def test_resolve_fetcher_args_github():
-    """GitHub source returns correct fetcher."""
     settings = MagicMock()
     settings.sources.github.enabled = True
     settings.sources.github.language = "python"
@@ -440,7 +430,6 @@ def test_resolve_fetcher_args_github():
 
 
 def test_resolve_fetcher_args_hacker_news():
-    """Hacker News source returns correct fetcher."""
     settings = MagicMock()
     settings.sources.hacker_news.enabled = True
     settings.sources.hacker_news.top_n = 15
@@ -454,7 +443,6 @@ def test_resolve_fetcher_args_hacker_news():
 
 
 def test_resolve_fetcher_args_product_hunt():
-    """Product Hunt source returns correct fetcher."""
     settings = MagicMock()
     settings.sources.product_hunt.enabled = True
     settings.sources.product_hunt.token = "ph-123"
@@ -466,9 +454,6 @@ def test_resolve_fetcher_args_product_hunt():
     from trending_hunter.fetchers.producthunt import ProductHuntFetcher
 
     assert isinstance(fetcher, ProductHuntFetcher)
-
-
-# --- --no-rewrite tests ---
 
 
 @patch("trending_hunter.cli.run_cycle")
@@ -489,14 +474,10 @@ def test_run_rewrite_enabled_by_default(mock_run_cycle):
     assert mock_run_cycle.call_args[1]["skip_rewrite"] is False
 
 
-# --- schedule graceful shutdown tests ---
-
-
 @patch("trending_hunter.cli.run_cycle")
 @patch("trending_hunter.cli.load_config")
 @patch("time.sleep")
 def test_schedule_shutdown_on_signal(mock_sleep, mock_load, mock_run_cycle):
-    """Schedule stops gracefully when shutdown_event is set."""
     import threading
 
     import trending_hunter.cli as cli_mod
@@ -504,7 +485,6 @@ def test_schedule_shutdown_on_signal(mock_sleep, mock_load, mock_run_cycle):
     original_event = cli_mod._shutdown_event
     cli_mod._shutdown_event = threading.Event()
     try:
-        # Set the event before running, so the loop exits immediately
         cli_mod._shutdown_event.set()
         runner = CliRunner()
         result = runner.invoke(
@@ -527,13 +507,11 @@ def test_schedule_shutdown_on_signal(mock_sleep, mock_load, mock_run_cycle):
 @patch("trending_hunter.cli.load_config")
 @patch("time.sleep")
 def test_schedule_backoff_on_error(mock_sleep, mock_load, mock_run_cycle):
-    """Schedule increases interval on consecutive failures, resets on success."""
     import trending_hunter.cli as cli_mod
 
     original_backoff = cli_mod._consecutive_failures
     cli_mod._consecutive_failures = 0
     try:
-        # First cycle fails, second succeeds
         mock_run_cycle.side_effect = [Exception("fail"), None]
         runner = CliRunner()
         result = runner.invoke(
@@ -549,7 +527,6 @@ def test_schedule_backoff_on_error(mock_sleep, mock_load, mock_run_cycle):
             ],
         )
         assert result.exit_code == 0, result.output
-        # Second sleep should use backoff interval (60 * 2 = 120)
         assert mock_sleep.call_args_list[0] == call(120)
     finally:
         cli_mod._consecutive_failures = original_backoff
@@ -559,13 +536,11 @@ def test_schedule_backoff_on_error(mock_sleep, mock_load, mock_run_cycle):
 @patch("trending_hunter.cli.load_config")
 @patch("time.sleep")
 def test_schedule_backoff_capped(mock_sleep, mock_load, mock_run_cycle):
-    """Backoff interval is capped at 5 minutes (300s)."""
     import trending_hunter.cli as cli_mod
 
     original_backoff = cli_mod._consecutive_failures
     cli_mod._consecutive_failures = 0
     try:
-        # 5 consecutive failures
         mock_run_cycle.side_effect = [Exception("fail")] * 5 + [None]
         runner = CliRunner()
         result = runner.invoke(
@@ -581,10 +556,8 @@ def test_schedule_backoff_capped(mock_sleep, mock_load, mock_run_cycle):
             ],
         )
         assert result.exit_code == 0, result.output
-        # Check that sleep was called with capped interval
         sleep_intervals = [c.args[0] for c in mock_sleep.call_args_list]
         assert all(i <= 300 for i in sleep_intervals)
-        # 60 * 2^4 = 960, capped to 300
         assert 300 in sleep_intervals
     finally:
         cli_mod._consecutive_failures = original_backoff
@@ -593,7 +566,6 @@ def test_schedule_backoff_capped(mock_sleep, mock_load, mock_run_cycle):
 @patch("trending_hunter.cli.run_cycle")
 @patch("time.sleep")
 def test_schedule_config_loaded_once(mock_sleep, mock_run_cycle):
-    """Config is loaded once before the loop, not per cycle."""
     with patch("trending_hunter.cli.load_config") as mock_load:
         runner = CliRunner()
         result = runner.invoke(
@@ -609,11 +581,7 @@ def test_schedule_config_loaded_once(mock_sleep, mock_run_cycle):
             ],
         )
         assert result.exit_code == 0, result.output
-        # load_config should be called only once (for settings resolution)
         assert mock_load.call_count == 1
-
-
-# --- search command date range and limit tests ---
 
 
 @patch(
@@ -685,16 +653,12 @@ def test_search_command_with_limit(mock_load, mock_search):
     )
 
 
-# --- Problem 1: per-source threshold tests ---
-
-
 @patch("trending_hunter.cli.run_pipeline", return_value=[])
 @patch("trending_hunter.cli.filter_projects", return_value=[])
 @patch("trending_hunter.cli.load_config")
 def test_run_cycle_passes_source_to_filter(
     mock_load, mock_filter, mock_pipeline, patched_fetchers
 ):
-    """run_cycle must pass source to filter_projects for per-source thresholds."""
     settings = MagicMock()
     settings.sources.github.enabled = True
     settings.sources.github.language = ""
@@ -709,10 +673,10 @@ def test_run_cycle_passes_source_to_filter(
     run_cycle("github", "config.yaml", 0, False)
 
     mock_filter.assert_called_once()
-    call_kwargs = mock_filter.call_args
+    call_args = mock_filter.call_args
     assert (
-        call_kwargs[1].get("source") == Source.GITHUB
-        or call_kwargs[0][2] == Source.GITHUB
+        call_args[1].get("source") == Source.GITHUB
+        or call_args[0][2] == Source.GITHUB
     )
 
 
@@ -722,7 +686,6 @@ def test_run_cycle_passes_source_to_filter(
 def test_run_cycle_passes_hacker_news_source(
     mock_load, mock_filter, mock_pipeline, patched_fetchers
 ):
-    """run_cycle passes Source.HACKER_NEWS to filter_projects."""
     settings = MagicMock()
     settings.sources.hacker_news.enabled = True
     settings.sources.hacker_news.top_n = 10
@@ -747,7 +710,6 @@ def test_run_cycle_passes_hacker_news_source(
 def test_run_cycle_passes_product_hunt_source(
     mock_load, mock_filter, mock_pipeline, patched_fetchers
 ):
-    """run_cycle passes Source.PRODUCT_HUNT to filter_projects."""
     settings = MagicMock()
     settings.sources.product_hunt.enabled = True
     settings.sources.product_hunt.token = "ph-token"
@@ -767,16 +729,12 @@ def test_run_cycle_passes_product_hunt_source(
     assert source_arg == Source.PRODUCT_HUNT
 
 
-# --- Problem 2: Fetcher Protocol adapter tests ---
-
-
 @patch("trending_hunter.cli.run_pipeline", return_value=[])
 @patch("trending_hunter.cli.filter_projects", return_value=[])
 @patch("trending_hunter.cli.load_config")
 def test_run_cycle_uses_fetcher_protocol(
     mock_load, mock_filter, mock_pipeline, patched_fetchers
 ):
-    """run_cycle uses Fetcher.fetch() instead of callable(**kwargs)."""
     settings = MagicMock()
     settings.sources.github.enabled = True
     settings.sources.github.language = ""
@@ -790,11 +748,7 @@ def test_run_cycle_uses_fetcher_protocol(
 
     run_cycle("github", "config.yaml", 0, False)
 
-    # Verify fetcher.fetch was called with settings
     mock_fetcher.fetch.assert_called_once_with(settings)
-
-
-# --- Problem 3: Single config load test ---
 
 
 @patch("trending_hunter.cli.run_pipeline", return_value=[])
@@ -803,7 +757,6 @@ def test_run_cycle_uses_fetcher_protocol(
 def test_run_cycle_loads_config_once(
     mock_load, mock_filter, mock_pipeline, patched_fetchers
 ):
-    """run_cycle loads config once."""
     settings = MagicMock()
     settings.sources.github.enabled = True
     settings.sources.github.language = ""
@@ -817,11 +770,7 @@ def test_run_cycle_loads_config_once(
 
     run_cycle("github", "config.yaml", 0, False)
 
-    # load_config should be called only once in run_cycle
     assert mock_load.call_count == 1
-
-
-# --- Problem 5: stdout path display test ---
 
 
 @patch("trending_hunter.cli.run_pipeline")
@@ -830,7 +779,6 @@ def test_run_cycle_loads_config_once(
 def test_run_cycle_empty_path_no_saved_line(
     mock_load, mock_filter, mock_pipeline, patched_fetchers
 ):
-    """When file_path is empty (stdout mode), 'Saved:' should not appear."""
     settings = MagicMock()
     settings.sources.github.enabled = True
     settings.sources.github.language = ""
@@ -853,7 +801,7 @@ def test_run_cycle_empty_path_no_saved_line(
     result_obj = PipelineResult(
         project=proj,
         token_usage={"draft": TokenUsage(input_tokens=50, output_tokens=100)},
-        file_path="",  # empty path from stdout mode
+        file_path="",
         cost=0.0012,
     )
     mock_pipeline.return_value = [result_obj]
@@ -865,5 +813,117 @@ def test_run_cycle_empty_path_no_saved_line(
     runner = CliRunner()
     result = runner.invoke(cli, ["run", "--source", "github"])
     assert result.exit_code == 0
-    # "Saved:" should not appear with empty path
     assert "Saved:" not in result.output
+
+
+@patch("trending_hunter.cli.load_config")
+def test_doctor_all_pass(mock_load):
+    settings = MagicMock()
+    settings.knowledge_base.path = "/tmp/kb"
+    settings.llm.draft.base_url = "http://localhost"
+    settings.llm.draft.api_key = "key1"
+    settings.llm.draft.model = "model-a"
+    settings.llm.audit.base_url = "http://localhost"
+    settings.llm.audit.api_key = "key2"
+    settings.llm.audit.model = "model-a"
+    settings.llm.rewrite.base_url = "http://localhost"
+    settings.llm.rewrite.api_key = "key3"
+    settings.llm.rewrite.model = "model-a"
+    settings.model_pricing = {}
+    settings.tavily.api_key = "tavily-key"
+    settings.sources.product_hunt.token = "ph-token"
+    mock_load.return_value = settings
+
+    runner = CliRunner()
+    result = runner.invoke(cli, ["doctor"])
+    assert result.exit_code == 0
+    assert "✔ LLM Config" in result.output
+    assert "✔ Tavily API Key" in result.output
+    assert "✔ Product API Token" in result.output
+    assert "✖" not in result.output
+
+
+@patch("trending_hunter.cli.load_config")
+def test_doctor_llm_missing_fields(mock_load):
+    settings = MagicMock()
+    settings.knowledge_base.path = "/tmp/kb"
+    settings.llm.draft.base_url = "http://localhost"
+    settings.llm.draft.api_key = "key1"
+    settings.llm.draft.model = "model-a"
+    settings.llm.audit.base_url = ""
+    settings.llm.audit.api_key = ""
+    settings.llm.audit.model = ""
+    settings.llm.rewrite.base_url = "http://localhost"
+    settings.llm.rewrite.api_key = "key3"
+    settings.llm.rewrite.model = "model-a"
+    settings.model_pricing = {}
+    settings.tavily.api_key = "tavily-key"
+    settings.sources.product_hunt.token = "ph-token"
+    mock_load.return_value = settings
+
+    runner = CliRunner()
+    result = runner.invoke(cli, ["doctor"])
+    assert result.exit_code == 0
+    assert "✖ LLM Config" in result.output
+    assert "Audit provider" in result.output
+    assert "missing" in result.output
+
+
+@patch("trending_hunter.cli.load_config")
+def test_doctor_product_token_missing(mock_load):
+    settings = MagicMock()
+    settings.knowledge_base.path = "/tmp/kb"
+    settings.llm.draft.base_url = "http://localhost"
+    settings.llm.draft.api_key = "key1"
+    settings.llm.draft.model = "model-a"
+    settings.llm.audit.base_url = "http://localhost"
+    settings.llm.audit.api_key = "key2"
+    settings.llm.audit.model = "model-a"
+    settings.llm.rewrite.base_url = "http://localhost"
+    settings.llm.rewrite.api_key = "key3"
+    settings.llm.rewrite.model = "model-a"
+    settings.model_pricing = {}
+    settings.tavily.api_key = "tavily-key"
+    settings.sources.product_hunt.token = ""
+    mock_load.return_value = settings
+
+    runner = CliRunner()
+    result = runner.invoke(cli, ["doctor"])
+    assert result.exit_code == 0
+    assert "✖ Product API Token" in result.output
+
+
+@patch("trending_hunter.cli.load_config")
+def test_doctor_config_load_fail(mock_load):
+    mock_load.side_effect = FileNotFoundError("config.yaml not found")
+    runner = CliRunner()
+    result = runner.invoke(cli, ["doctor"])
+    assert result.exit_code == 0
+    assert "Failed to load config" in result.output
+
+
+@patch("trending_hunter.cli.load_config")
+def test_doctor_shows_pricing(mock_load):
+    from trending_hunter.settings import ModelPricing
+
+    settings = MagicMock()
+    settings.knowledge_base.path = "/tmp/kb"
+    settings.llm.draft.base_url = "http://localhost"
+    settings.llm.draft.api_key = "key1"
+    settings.llm.draft.model = "gpt-4"
+    settings.llm.audit.base_url = "http://localhost"
+    settings.llm.audit.api_key = "key2"
+    settings.llm.audit.model = "gpt-4"
+    settings.llm.rewrite.base_url = "http://localhost"
+    settings.llm.rewrite.api_key = "key3"
+    settings.llm.rewrite.model = "gpt-4"
+    settings.model_pricing = {
+        "draft": ModelPricing(input_per_million=10.0, output_per_million=30.0)
+    }
+    settings.tavily.api_key = "tavily-key"
+    settings.sources.product_hunt.token = "ph-token"
+    mock_load.return_value = settings
+
+    runner = CliRunner()
+    result = runner.invoke(cli, ["doctor"])
+    assert "$10.0/30.0 per 1M" in result.output

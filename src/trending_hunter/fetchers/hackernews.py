@@ -15,11 +15,14 @@ _USER_AGENT = "TrendingHunter/0.1"
 
 
 def _fetch_json(path: str, proxy: str | None = None) -> Any:
-    with httpx.Client(
-        headers={"User-Agent": _USER_AGENT},
-        timeout=15,
-        proxy=proxy,
-    ) as client:
+    client_kwargs: dict[str, Any] = {
+        "headers": {"User-Agent": _USER_AGENT},
+        "timeout": 15,
+        "trust_env": False,
+    }
+    if proxy:
+        client_kwargs["proxy"] = proxy
+    with httpx.Client(**client_kwargs) as client:
         resp = client.get(f"{_HN_API}/{path}")
         resp.raise_for_status()
     return resp.json()

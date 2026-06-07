@@ -11,7 +11,9 @@ if [ ! -x "$TH" ]; then
   exit 1
 fi
 
-for source in github producthunt hackernews; do
+cd "$PROJECT_DIR"
+
+for source in github product_hunt hacker_news; do
   echo "=== $(date '+%Y-%m-%d %H:%M:%S') [$source] ===" >> "$LOG"
   "$TH" run --source "$source" --language chinese --limit 10 >> "$LOG" 2>&1 || true
 done

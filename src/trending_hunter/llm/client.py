@@ -7,8 +7,10 @@ from collections.abc import Callable
 from typing import Any, TypeVar, cast
 
 import anthropic
+import httpx
 
 from trending_hunter.log import get_logger
+from trending_hunter.settings import LLMStageConfig
 
 _SECTION_RE = re.compile(r"^## (.+)$", re.MULTILINE)
 _T = TypeVar("_T")
@@ -63,25 +65,39 @@ class LLMClient:
         max_tokens: int = 4096,
         base_url: str | None = None,
         timeout: float = 120.0,
+        max_tool_rounds: int = 5,
     ) -> None:
+        kwargs: dict[str, Any] = {
+            "api_key": api_key,
+            "timeout": timeout,
+            "http_client": httpx.Client(trust_env=False, timeout=timeout),
+        }
         if base_url:
             base_url = re.sub(r"/v1/messages/?$", "", base_url.rstrip("/"))
+            kwargs["base_url"] = base_url
         # Clear env vars that the SDK reads — we pass api_key explicitly
         _prev: dict[str, str] = {}
         for _k in ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN"):
             if _k in os.environ:
                 _prev[_k] = os.environ.pop(_k)
-        if base_url:
-            self._client = anthropic.Anthropic(
-                api_key=api_key,
-                timeout=timeout,
-                base_url=base_url,
-            )
-        else:
-            self._client = anthropic.Anthropic(api_key=api_key, timeout=timeout)
-        os.environ.update(_prev)
+        try:
+            self._client = anthropic.Anthropic(**kwargs)
+        finally:
+            os.environ.update(_prev)
         self._model = model
         self._max_tokens = max_tokens
+        self._max_tool_rounds = max_tool_rounds
+
+    @classmethod
+    def from_stage_config(cls, cfg: LLMStageConfig) -> LLMClient:
+        return cls(
+            api_key=cfg.api_key,
+            model=cfg.model,
+            max_tokens=cfg.max_tokens,
+            base_url=cfg.base_url or None,
+            timeout=cfg.timeout,
+            max_tool_rounds=cfg.max_tool_rounds,
+        )
 
     def call(self, system: str, user: str) -> tuple[dict[str, str], dict[str, int]]:
         log.info("LLM call: model=%s", self._model)
@@ -119,8 +135,11 @@ class LLMClient:
         user: str,
         tools: list[dict[str, Any]],
         tool_handler: Callable[[str, dict[str, Any]], str],
-        max_rounds: int = 5,
+        max_rounds: int | None = None,
     ) -> tuple[dict[str, str], dict[str, int]]:
+        effective_rounds = (
+            max_rounds if max_rounds is not None else self._max_tool_rounds
+        )
         log.info(
             "LLM call_with_tools: model=%s tools=%s",
             self._model,
@@ -131,8 +150,8 @@ class LLMClient:
         total_input = 0
         total_output = 0
 
-        for round_num in range(max_rounds):
-            log.debug("Tool round %d/%d", round_num + 1, max_rounds)
+        for round_num in range(effective_rounds):
+            log.debug("Tool round %d/%d", round_num + 1, effective_rounds)
 
             def _do_call() -> Any:
                 return self._client.messages.create(
@@ -185,7 +204,7 @@ class LLMClient:
 
         log.warning(
             "LLM tool loop exhausted after %d rounds, forcing final response",
-            max_rounds,
+            effective_rounds,
         )
         messages.append(
             {

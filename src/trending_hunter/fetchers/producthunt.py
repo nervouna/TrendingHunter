@@ -35,14 +35,17 @@ def _ph_graphql(
     token: str,
     proxy: str | None = None,
 ) -> dict[str, Any]:
-    with httpx.Client(
-        headers={
+    client_kwargs: dict[str, Any] = {
+        "headers": {
             "Authorization": f"Bearer {token}",
             "Content-Type": "application/json",
         },
-        timeout=15,
-        proxy=proxy,
-    ) as client:
+        "timeout": 15,
+        "trust_env": False,
+    }
+    if proxy:
+        client_kwargs["proxy"] = proxy
+    with httpx.Client(**client_kwargs) as client:
         resp = client.post(_PH_API, json={"query": query, "variables": variables})
         resp.raise_for_status()
     return cast(dict[str, Any], resp.json())
